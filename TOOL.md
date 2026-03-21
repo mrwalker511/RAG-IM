@@ -445,4 +445,36 @@ Yes.
 
 ---
 
+---
+
+### Entry #26 — Read (4 files in parallel: AGENTS.md, SKILLS.md, README.md, testing.md)
+
+**Date:** 2026-03-21
+**Situation:** User asked to ensure all relevant files are updated routinely. Needed to read all docs before editing to understand current state and gaps.
+
+**Tool used:** `Read` — 4 files in parallel
+
+**Why this tool was chosen:**
+All paths known. `Read` before any `Edit` (required). Parallel reads to avoid sequential waits.
+
+**Was this the right choice?**
+Yes.
+
+---
+
+### Entry #27 — Edit (6 files: AGENTS.md x2, SKILLS.md x2, README.md x2, testing.md x2, GUIDE.md)
+
+**Date:** 2026-03-21
+**Situation:** Updating all project docs to reflect infrastructure changes (rate limiting, Redis cache, pool sizing, new config settings, new test files, new test fixtures).
+
+**Tool used:** `Edit` — targeted insertions and replacements in each file
+
+**Why this tool was chosen:**
+All files were already read. Changes were targeted additions to specific sections — `Edit` is correct. `Write` would have been wasteful for files where only 1–2 sections changed.
+
+**Was this the right choice?**
+Yes.
+
+---
+
 *Entries are appended each time a tool decision is made. The goal is a running record that makes agent behavior transparent and auditable.*

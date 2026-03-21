@@ -68,6 +68,13 @@ pip install -r requirements.txt
 | `BM25_STALE_AFTER_MINUTES` | `60` | BM25 index rebuild threshold |
 | `API_HOST` | `0.0.0.0` | API bind host |
 | `API_PORT` | `8000` | API bind port |
+| `CORS_ORIGINS` | `*` | Comma-separated allowed origins; restrict in production |
+| `RATE_LIMIT_PER_MINUTE` | `60` | Per-API-key sliding-window rate limit; `0` = disabled |
+| `DB_POOL_SIZE` | `10` | SQLAlchemy connection pool size |
+| `DB_MAX_OVERFLOW` | `20` | Max connections above pool size |
+| `DB_POOL_TIMEOUT` | `30` | Seconds to wait for a DB connection |
+| `REDIS_MAX_CONNECTIONS` | `20` | Redis connection pool cap |
+| `QUERY_CACHE_TTL` | `300` | Query result cache TTL in seconds; `0` = disabled |
 
 ## CLI Usage
 
@@ -127,7 +134,7 @@ ragcore/
 ├── embeddings/        # BaseEmbedder + OpenAI + SentenceTransformer
 ├── retrieval/         # vector_search, bm25_search, hybrid RRF, reranker
 ├── generation/        # BaseLLMGenerator + OpenAI + LiteLLM
-├── query/             # End-to-end query pipeline
+├── query/             # End-to-end query pipeline (includes Redis result cache)
 └── observability/     # Async query event logger
 ```
 

@@ -68,13 +68,48 @@ DEFAULT_CHUNK_OVERLAP = 64  # tokens
 All API endpoints require `X-API-Key` header. Keys are:
 - SHA-256 hashed on storage
 - Stored in `api_keys` table, scoped to a `project_id`
-- Validated in `api/middleware.py` before reaching route handlers
+- Validated in `api/middleware.py` (`api_key_middleware`) before reaching route handlers
 
 ```
-Missing key   → 401 Unauthorized
-Wrong project → 403 Forbidden
-Valid key     → pass through
+Missing key  → 401 Unauthorized
+Invalid key  → 401 Unauthorized
+Valid key    → pass through; key object attached to request.state.api_key
 ```
+
+Exempt paths (no auth required): `/`, `/docs`, `/openapi.json`, `/redoc`, `/health`
+
+## Rate Limiting
+
+Implemented in `api/middleware.py` (`rate_limit_middleware`), runs before auth middleware.
+
+- Sliding-window algorithm: tracks request timestamps per API key hash in `_rate_windows` (in-process `defaultdict(deque)`)
+- Window: 60 seconds; limit: `RATE_LIMIT_PER_MINUTE` (default 60)
+- Exceeding limit → `429 Too Many Requests` with `Retry-After` header
+- `RATE_LIMIT_PER_MINUTE=0` disables limiting entirely
+- State is in-process only — resets on restart; not suitable for multi-process deployments
+
+## Redis Query Cache
+
+Implemented in `ragcore/query/pipeline.py` (`_get_cached`, `_set_cached`, `_cache_key`).
+
+- Cache key: `query_cache:<sha256(project_id:query_text:top_k)>`
+- Populated after successful LLM generation; TTL = `QUERY_CACHE_TTL` seconds (default 300)
+- Cache lookup happens before any vector search or LLM call
+- Streaming queries (`stream=True`) **bypass the cache entirely** — no read, no write
+- Redis errors fail silently in both read and write — a Redis outage never breaks queries
+- Shared Redis client via `ragcore/db/redis.py` (`get_redis()`, `get_redis_pool()`)
+
+## Connection Pooling
+
+**SQLAlchemy** (`ragcore/db/session.py`):
+- `pool_size=DB_POOL_SIZE` (default 10)
+- `max_overflow=DB_MAX_OVERFLOW` (default 20)
+- `pool_timeout=DB_POOL_TIMEOUT` (default 30s)
+- `pool_pre_ping=True` — validates connections before use
+
+**Redis** (`ragcore/db/redis.py`):
+- `ConnectionPool.from_url(REDIS_URL, max_connections=REDIS_MAX_CONNECTIONS)`
+- Single shared pool; closed in app lifespan via `close_redis_pool()`
 
 ## Hybrid Search (RRF)
 
@@ -97,13 +132,21 @@ def reciprocal_rank_fusion(
 
 ## Testing Conventions
 
-| Fixture / Pattern        | Purpose                                                         |
-|--------------------------|-----------------------------------------------------------------|
-| `async_test_engine`      | Creates fresh async DB per test session; drops/recreates tables |
-| `mock_embedder`          | Returns random vectors of correct dimension (no API call)       |
-| `mock_llm`               | Returns deterministic string for assertion                      |
-| `sample_docs/`           | 1-page PDF, simple DOCX, .md, .txt fixture files                |
-| Integration tests        | Seed DB with known data before asserting retrieval accuracy     |
+| Fixture / Pattern | Purpose |
+|---|---|
+| `test_engine` | Session-scoped async engine; drops/recreates all tables at start and teardown |
+| `db_session` | Function-scoped session; rolls back after each test |
+| `seeded_api_key` | Session-scoped; inserts a `Project` + `APIKey` row into test DB; returns raw key string |
+| `api_client` | Async HTTP client with `X-API-Key` header set; patches `api.middleware.AsyncSessionLocal` to use test DB so auth middleware works |
+| `mock_embedder` | Returns zero vectors of correct dimension — no API call |
+| Integration tests | Seed DB with known data before asserting retrieval accuracy |
+
+**Critical test patterns:**
+- Always patch `api.middleware.AsyncSessionLocal` when testing auth-gated routes — the middleware bypasses DI
+- Always mock `_get_cached` and `_set_cached` in `run_query` unit tests — they attempt Redis connections
+- Streaming tests do not need cache mocks — `stream=True` skips the cache path entirely
+- `asyncio_mode = "auto"` is set — `@pytest.mark.asyncio` decorators are redundant
+- `asyncio_default_fixture_loop_scope = "session"` — session-scoped async fixtures share one event loop
 
 ## CLI Usage (Generic Examples)
 

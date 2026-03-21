@@ -48,7 +48,7 @@ class OpenAIGenerator(BaseLLMGenerator):
                 await asyncio.sleep(delay)
         raise last_exc  # type: ignore[misc]
 
-    async def _stream(self, prompt: str) -> AsyncGenerator[str, None]:
+    def _stream(self, prompt: str) -> AsyncGenerator[str, None]:
         async def _gen():
             async with await self._client.chat.completions.create(
                 model=self._model,

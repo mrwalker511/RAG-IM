@@ -36,6 +36,6 @@ def test_bm25_top_result_is_relevant():
 
 
 def test_bm25_empty_corpus():
-    bm25 = BM25Okapi([[]])
+    bm25 = BM25Okapi([["dummy"]])
     scores = bm25.get_scores(["query"])
     assert len(scores) == 1

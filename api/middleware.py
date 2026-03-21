@@ -31,6 +31,8 @@ async def api_key_middleware(request: Request, call_next):
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(APIKey).where(APIKey.key_hash == key_hash))
         api_key = result.scalar_one_or_none()
+        if hasattr(api_key, "__await__"):
+            api_key = await api_key
 
     if not api_key:
         return JSONResponse(

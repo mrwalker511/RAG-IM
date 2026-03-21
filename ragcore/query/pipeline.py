@@ -91,6 +91,8 @@ async def _ensure_bm25_index(project_id: uuid.UUID, session: AsyncSession) -> No
     """Build BM25 index if missing or stale."""
     result = await session.execute(select(BM25Index).where(BM25Index.project_id == project_id))
     index_row = result.scalar_one_or_none()
+    if hasattr(index_row, "__await__"):
+        index_row = await index_row
 
     if index_row is None:
         await build_bm25_index(project_id, session)

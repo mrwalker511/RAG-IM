@@ -3,6 +3,7 @@ import uuid
 from pathlib import Path
 
 from arq import ArqRedis
+from arq.connections import RedisSettings
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ragcore.config import settings
@@ -35,4 +36,4 @@ async def ingest_document(
 
 class WorkerSettings:
     functions = [ingest_document]
-    redis_settings = settings.REDIS_URL
+    redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)

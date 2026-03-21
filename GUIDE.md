@@ -128,12 +128,22 @@ Update any tests that depend on the old value.
 
 ## Logging Reminder
 
-After every session the agent must:
-- Append tool decisions to `TOOL.md`
-- Append any mistakes to `ERRORS.md`
+After every session the agent must update **all three logs** before committing:
 
-If the agent skips this, open the next session with:
-> "Log the tool decisions and errors from the last session before continuing."
+| File | What goes in it |
+|---|---|
+| `TOOL.md` | Every tool decision — what was used, why, and whether it was correct |
+| `ERRORS.md` | Every mistake — one entry per distinct error, with root cause and correction |
+| `GUIDE.md` | Any new prompting pattern, rule, or cost lesson learned this session |
+
+**`GUIDE.md` must be updated whenever:**
+- A new prompting pattern proves effective or ineffective
+- A new request type template is needed
+- A cost trigger is discovered that isn't already listed
+- A session rule is added, changed, or tightened
+
+If the agent skips any log, open the next session with:
+> "Update `TOOL.md`, `ERRORS.md`, and `GUIDE.md` for the last session before continuing."
 
 ---
 

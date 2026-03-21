@@ -428,4 +428,21 @@ Yes.
 
 ---
 
+---
+
+### Entry #25 — Read + Edit (GUIDE.md)
+
+**Date:** 2026-03-21
+**Situation:** User instructed that GUIDE.md must always be updated each session. Added GUIDE.md to the logging reminder table alongside TOOL.md and ERRORS.md, with explicit triggers for when it must be updated.
+
+**Tools used:** `Read` then `Edit`
+
+**Why these tools were chosen:**
+`Read` first (required before `Edit`). Change was a targeted addition to one section — `Edit` sends only the diff, not the full file.
+
+**Was this the right choice?**
+Yes.
+
+---
+
 *Entries are appended each time a tool decision is made. The goal is a running record that makes agent behavior transparent and auditable.*

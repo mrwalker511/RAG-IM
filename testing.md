@@ -68,7 +68,9 @@ Expected output — all of the following suites should pass:
 | `test_bm25_index.py` | BM25 build and search logic |
 | `test_deduplication.py` | Duplicate chunk filtering |
 | `test_generation.py` | `GenerationResult` with real token count; zero-token fallback |
-| `test_query_pipeline.py` | `run_query` token propagation; BM25 staleness (missing / stale / fresh) |
+| `test_query_pipeline.py` | `run_query` result, cache hit, stream bypass; BM25 staleness (missing / stale / fresh) |
+| `test_middleware.py` | `api_key_middleware` (401 on missing/invalid key, pass-through on valid); `rate_limit_middleware` (429 after limit, Retry-After header, per-key isolation, disabled at 0) |
+| `test_redis_cache.py` | `_cache_key` (deterministic, uniqueness); `_get_cached` (TTL=0, miss, hit, Redis error); `_set_cached` (TTL=0, correct write, Redis error) |
 
 ### Run with coverage
 
@@ -129,8 +131,10 @@ pytest tests/api/ -v
 
 | Test file | What it covers |
 |---|---|
-| `test_projects_api.py` | CRUD for projects (create, list, get, delete, 409 conflict) |
+| `test_projects_api.py` | CRUD for projects (create, list, delete, 409 conflict, 404) |
 | `test_api_keys.py` | Create key (raw key returned once), list keys (no raw key), delete key, 404 paths |
+
+> **Note:** All API tests require `X-API-Key` to be sent. The `api_client` fixture in `conftest.py` handles this automatically — it seeds a test API key into the test DB and includes the header on every request. `api.middleware.AsyncSessionLocal` is patched to use the test engine so auth lookups resolve correctly.
 
 ---
 

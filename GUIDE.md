@@ -128,22 +128,22 @@ Update any tests that depend on the old value.
 
 ## Logging Reminder
 
-After every session the agent must update **all three logs** before committing:
+After every session the agent must update **all logs and docs** before committing:
 
-| File | What goes in it |
-|---|---|
-| `TOOL.md` | Every tool decision — what was used, why, and whether it was correct |
-| `ERRORS.md` | Every mistake — one entry per distinct error, with root cause and correction |
-| `GUIDE.md` | Any new prompting pattern, rule, or cost lesson learned this session |
+| File | What goes in it | Update when |
+|---|---|---|
+| `TOOL.md` | Every tool decision — what was used, why, correct or not | Every session, every tool choice |
+| `ERRORS.md` | Every mistake — one entry per distinct error, root cause, correction | Any time a mistake is made |
+| `GUIDE.md` | New prompting patterns, rules, cost triggers, templates | New pattern discovered or rule tightened |
+| `.claude/AGENTS.md` | Project overview, directory layout, design rules, new config settings | New files, settings, or architectural rules added |
+| `.claude/SKILLS.md` | Implementation patterns, auth, cache, rate limiting, testing conventions | New system behavior or testing pattern added |
+| `README.md` | User-facing env vars, architecture, quickstart | New env var or architectural component added |
+| `testing.md` | Test suite inventory, test DB setup, manual smoke tests | New test file added or testing pattern changes |
 
-**`GUIDE.md` must be updated whenever:**
-- A new prompting pattern proves effective or ineffective
-- A new request type template is needed
-- A cost trigger is discovered that isn't already listed
-- A session rule is added, changed, or tightened
+**One entry per error** — do not bundle multiple distinct mistakes under one `ERRORS.md` entry.
 
-If the agent skips any log, open the next session with:
-> "Update `TOOL.md`, `ERRORS.md`, and `GUIDE.md` for the last session before continuing."
+If the agent skips any file, open the next session with:
+> "Update all docs (`TOOL.md`, `ERRORS.md`, `GUIDE.md`, `AGENTS.md`, `SKILLS.md`, `README.md`, `testing.md`) for the last session before continuing."
 
 ---
 

@@ -59,4 +59,28 @@ User flagged the omission. Added `await _set_cached(cache_key, query_result)` im
 
 ---
 
+---
+
+## Error #3 — Edit attempted on unread file
+
+**Date:** 2026-03-21
+**Session context:** Updating ERRORS.md to log error #2 during the infrastructure improvements session.
+
+### What happened
+The agent called `Edit` on `ERRORS.md` without having called `Read` on it first in the same session. The tool rejected the call with: `File has not been read yet. Read it first before writing to it.`
+
+### Initial thought process (why the agent made this mistake)
+The agent had read ERRORS.md in a prior session and treated that as sufficient. When context switches between sessions, prior reads do not carry over — the tool requires a fresh `Read` in the current session before any `Edit` is permitted.
+
+### Why this caused the error
+`Edit` enforces a read-before-write contract per session to prevent blind overwrites. Skipping the `Read` caused the call to fail, adding an unnecessary round-trip.
+
+### What should have been done
+Always `Read` a file before calling `Edit` on it, even if the file's contents are known from prior sessions or earlier context.
+
+### Correction applied
+Called `Read` on `ERRORS.md` immediately, then re-issued the `Edit` successfully.
+
+---
+
 *Entries are appended as mistakes are identified. Format: date, context, what happened, root cause, correction.*

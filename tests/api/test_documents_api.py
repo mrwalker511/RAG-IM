@@ -39,6 +39,46 @@ async def test_upload_document_enqueues_job(api_client):
     assert data["job_id"] == "test-job-123"
     assert data["filename"] == "notes.txt"
     assert "document_id" in data
+    enqueue_args = mock_pool.enqueue_job.await_args.args
+    assert enqueue_args[0] == "ingest_document"
+    assert enqueue_args[1] == project_id
+    assert enqueue_args[3]["document_id"] == data["document_id"]
+    assert enqueue_args[3]["original_filename"] == "notes.txt"
+
+
+@pytest.mark.asyncio
+async def test_list_documents_returns_project_documents(api_client):
+    proj_resp = await api_client.post("/projects", json={"name": "doc-list-project"})
+    assert proj_resp.status_code == 201
+    project_id = proj_resp.json()["id"]
+
+    mock_job = MagicMock()
+    mock_job.job_id = "list-job-123"
+    mock_pool = AsyncMock()
+    mock_pool.enqueue_job = AsyncMock(return_value=mock_job)
+
+    with patch("api.routers.documents.create_pool", return_value=mock_pool):
+        await api_client.post(
+            f"/projects/{project_id}/documents",
+            files={"file": ("a.txt", BytesIO(b"alpha"), "text/plain")},
+        )
+        await api_client.post(
+            f"/projects/{project_id}/documents",
+            files={"file": ("b.txt", BytesIO(b"beta"), "text/plain")},
+        )
+
+    resp = await api_client.get(f"/projects/{project_id}/documents")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 2
+    filenames = {doc["filename"] for doc in data["documents"]}
+    assert filenames == {"a.txt", "b.txt"}
+
+
+@pytest.mark.asyncio
+async def test_list_documents_project_not_found(api_client):
+    resp = await api_client.get(f"/projects/{uuid.uuid4()}/documents")
+    assert resp.status_code == 404
 
 
 @pytest.mark.asyncio

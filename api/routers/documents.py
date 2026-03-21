@@ -1,4 +1,3 @@
-import hashlib
 import shutil
 import tempfile
 import uuid
@@ -14,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.dependencies import get_db_session
 from ragcore.config import settings
 from ragcore.db.models import Document
+from ragcore.ingestion.deduplication import compute_hash
 from ragcore.projects.service import get_project
 from ragcore.retrieval.bm25_search import invalidate_bm25_index
 
@@ -32,6 +32,17 @@ class UploadResponse(BaseModel):
     filename: str
 
 
+class DocumentResponse(BaseModel):
+    id: str
+    filename: str
+    status: str
+
+
+class DocumentListResponse(BaseModel):
+    documents: list[DocumentResponse]
+    total: int
+
+
 @router.post("", response_model=UploadResponse, status_code=status.HTTP_202_ACCEPTED)
 async def upload_document(
     project_id: uuid.UUID,
@@ -47,6 +58,18 @@ async def upload_document(
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         shutil.copyfileobj(file.file, tmp)
         tmp_path = tmp.name
+    content_hash = compute_hash(Path(tmp_path))
+
+    # Create the pending row before enqueue so the worker can update this exact record.
+    doc = Document(
+        project_id=project_id,
+        filename=file.filename or "unknown",
+        content_hash=content_hash,
+        status="pending",
+        meta={},
+    )
+    session.add(doc)
+    await session.flush()
 
     try:
         redis = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
@@ -54,25 +77,43 @@ async def upload_document(
             "ingest_document",
             str(project_id),
             tmp_path,
-            {"original_filename": file.filename},
+            {
+                "document_id": str(doc.id),
+                "original_filename": file.filename,
+            },
         )
     except Exception:
         import os
         os.unlink(tmp_path)
         raise
 
-    # Create a pending document record
-    doc = Document(
-        project_id=project_id,
-        filename=file.filename or "unknown",
-        content_hash=hashlib.sha256(b"pending").hexdigest(),
-        status="pending",
-        meta={"job_id": job.job_id},
-    )
-    session.add(doc)
-    await session.flush()
+    doc.meta = {"job_id": job.job_id}
 
     return UploadResponse(job_id=job.job_id, document_id=str(doc.id), filename=doc.filename)
+
+
+@router.get("", response_model=DocumentListResponse)
+async def list_documents(
+    project_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db_session),
+):
+    project = await get_project(project_id, session)
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    result = await session.execute(
+        select(Document)
+        .where(Document.project_id == project_id)
+        .order_by(Document.created_at.desc())
+    )
+    documents = list(result.scalars().all())
+    return DocumentListResponse(
+        documents=[
+            DocumentResponse(id=str(doc.id), filename=doc.filename, status=doc.status)
+            for doc in documents
+        ],
+        total=len(documents),
+    )
 
 
 @router.get("/{document_id}/status", response_model=DocumentStatus)

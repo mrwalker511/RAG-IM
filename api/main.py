@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.middleware import api_key_middleware, rate_limit_middleware
 from api.routers import api_keys, documents, projects, query
 from ragcore.config import settings
+from ragcore.db.redis import close_redis_pool
 from ragcore.db.session import engine
 
 # Dimensions known to be produced by each supported model.

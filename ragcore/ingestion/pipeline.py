@@ -33,6 +33,33 @@ def _get_parser(path: Path) -> BaseParser:
     return cls()
 
 
+async def _get_target_document(
+    project_id: uuid.UUID,
+    session: AsyncSession,
+    content_hash: str,
+    filename: str,
+    metadata: dict | None,
+) -> Document | None:
+    if metadata and metadata.get("document_id"):
+        document_id = uuid.UUID(metadata["document_id"])
+        result = await session.execute(
+            select(Document).where(
+                Document.id == document_id,
+                Document.project_id == project_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    result = await session.execute(
+        select(Document).where(
+            Document.project_id == project_id,
+            Document.filename == filename,
+            Document.content_hash == content_hash,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
 async def run_ingestion(
     project_id: uuid.UUID,
     file_path: Path,
@@ -41,33 +68,30 @@ async def run_ingestion(
     metadata: dict | None = None,
 ) -> Document:
     content_hash = compute_hash(file_path)
+    filename = (metadata or {}).get("original_filename") or file_path.name
+    doc = await _get_target_document(project_id, session, content_hash, filename, metadata)
 
     # Deduplication check
-    existing = await session.execute(
-        select(Document).where(
-            Document.project_id == project_id,
-            Document.filename == file_path.name,
-            Document.content_hash == content_hash,
-        )
-    )
-    doc = existing.scalar_one_or_none()
     if doc and doc.status == "complete":
-        logger.info("Skipping unchanged document: %s", file_path.name)
+        logger.info("Skipping unchanged document: %s", filename)
         return doc
 
     # Upsert document row
     if not doc:
         doc = Document(
             project_id=project_id,
-            filename=file_path.name,
+            filename=filename,
             content_hash=content_hash,
             status="processing",
             meta=metadata or {},
         )
         session.add(doc)
     else:
+        doc.filename = filename
         doc.status = "processing"
         doc.content_hash = content_hash
+        if metadata:
+            doc.meta = {**doc.meta, **metadata}
         # Remove old chunks so we can replace them
         for chunk in list(doc.chunks):
             await session.delete(chunk)
@@ -93,10 +117,10 @@ async def run_ingestion(
             session.add(chunk)
 
         doc.status = "complete"
-        logger.info("Ingested %d chunks from %s", len(chunk_results), file_path.name)
+        logger.info("Ingested %d chunks from %s", len(chunk_results), filename)
     except Exception as exc:
         doc.status = "failed"
-        logger.exception("Ingestion failed for %s: %s", file_path.name, exc)
+        logger.exception("Ingestion failed for %s: %s", filename, exc)
         raise
 
     await session.flush()

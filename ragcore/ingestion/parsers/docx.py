@@ -20,4 +20,4 @@ class DocxParser(BaseParser):
                 current.append(text)
         if current:
             sections.append("\n".join(current))
-        return sections if sections else [""]
+        return sections

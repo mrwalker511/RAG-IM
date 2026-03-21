@@ -1,5 +1,12 @@
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
+from dataclasses import dataclass
+
+
+@dataclass
+class GenerationResult:
+    text: str
+    tokens_used: int
 
 
 class BaseLLMGenerator(ABC):
@@ -8,9 +15,9 @@ class BaseLLMGenerator(ABC):
         self,
         prompt: str,
         stream: bool = False,
-    ) -> str | AsyncGenerator[str, None]:
+    ) -> "GenerationResult | AsyncGenerator[str, None]":
         """Generate an answer from a prompt.
 
-        Returns a string when stream=False, or an async generator of string
-        chunks when stream=True.
+        Returns a GenerationResult when stream=False, or an async generator of
+        string chunks when stream=True.
         """

@@ -47,13 +47,18 @@ async def upload_document(
         shutil.copyfileobj(file.file, tmp)
         tmp_path = tmp.name
 
-    redis = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
-    job = await redis.enqueue_job(
-        "ingest_document",
-        str(project_id),
-        tmp_path,
-        {"original_filename": file.filename},
-    )
+    try:
+        redis = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
+        job = await redis.enqueue_job(
+            "ingest_document",
+            str(project_id),
+            tmp_path,
+            {"original_filename": file.filename},
+        )
+    except Exception:
+        import os
+        os.unlink(tmp_path)
+        raise
 
     # Create a pending document record
     doc = Document(

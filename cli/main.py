@@ -107,8 +107,27 @@ def ingest_run(
 
 @ingest_app.command("status")
 def ingest_status(job_id: str = typer.Argument(..., help="Job ID from ingest run")):
-    """Check ingestion job status."""
-    console.print(f"Job ID: {job_id} — check your worker logs for status updates.")
+    """Check ingestion job status via ARQ/Redis."""
+    import asyncio as _asyncio
+    from arq import create_pool
+    from arq.connections import RedisSettings
+    from arq.jobs import Job, JobStatus
+
+    async def _check():
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+        pool = await create_pool(RedisSettings.from_dsn(redis_url))
+        job = Job(job_id, pool)
+        job_status = await job.status()
+        info = await job.info()
+        await pool.close()
+        return job_status, info
+
+    job_status, info = _asyncio.run(_check())
+    console.print(f"Job [cyan]{job_id}[/cyan]: [bold]{job_status.value}[/bold]")
+    if info and info.result is not None:
+        console.print(f"Result: {info.result}")
+    if info and info.enqueue_time:
+        console.print(f"Enqueued: {info.enqueue_time}")
 
 
 # ---------------------------------------------------------------------------

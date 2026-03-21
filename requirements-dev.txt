@@ -1,0 +1,11 @@
+-r requirements.txt
+
+# Testing
+pytest
+pytest-asyncio
+pytest-cov
+httpx
+
+# Linting & type checking
+ruff
+mypy

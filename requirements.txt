@@ -1,0 +1,36 @@
+# API
+fastapi
+uvicorn[standard]
+
+# DB
+sqlalchemy[asyncio]
+asyncpg
+alembic
+pgvector
+psycopg2-binary
+
+# Task queue
+arq
+redis
+
+# Embeddings & LLM
+openai
+sentence-transformers
+litellm
+
+# Parsing
+pypdf
+python-docx
+markdown-it-py
+
+# Chunking & retrieval
+langchain-text-splitters
+rank-bm25
+numpy
+scikit-learn
+
+# Config & CLI
+pydantic-settings
+python-dotenv
+typer
+rich

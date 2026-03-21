@@ -85,31 +85,98 @@ Called `Read` on `ERRORS.md` immediately, then re-issued the `Edit` successfully
 
 ---
 
-## Error #4 — Tests written without accounting for new middleware
+## Error #4 — api_client fixture missing X-API-Key header
 
 **Date:** 2026-03-21
-**Session context:** Infrastructure improvements added `api_key_middleware` and `rate_limit_middleware` to the app. Existing tests were not updated to match.
+**Session context:** `api_key_middleware` was added to the app factory in the infrastructure session. The `api_client` fixture in `conftest.py` was not updated.
 
 ### What happened
-After adding auth middleware in the infrastructure session, the existing API test suite was not updated. Specifically:
-- `conftest.py` `api_client` fixture sent no `X-API-Key` header — every request to a gated route would return 401
-- `test_projects_api.py` had its own `app` fixture and per-test `dependency_overrides` with no auth header — same result
-- `test_api_keys.py` relied on `api_client` — all 5 tests would 401
-- `test_query_pipeline.py` did not mock `_get_cached`/`_set_cached` — tests silently relied on Redis being unavailable (cache fails silently) rather than proper isolation
+The `api_client` fixture in `conftest.py` sent no `X-API-Key` header. Every request to a non-exempt route returned 401. All tests in `test_api_keys.py` (5 tests) and `test_projects_api.py` (3 tests) would fail silently with wrong status codes rather than meaningful assertion errors.
 
 ### Root cause
-Infrastructure changes (middleware, Redis cache) were implemented and pushed without simultaneously updating the test suite to reflect the new requirements. The middleware and cache were added in a session that was interrupted, and the test review was a separate session. The gap between implementation and test update allowed multiple test failures to accumulate.
+Middleware was added in a separate session from the test review. The fixture was not updated at the same time as the middleware implementation.
 
 ### What should have been done
-When middleware that gates all API requests is added, the test fixtures that exercise those routes must be updated in the same commit. Specifically:
-1. The `api_client` fixture must include the `X-API-Key` header and patch the middleware session factory to use the test DB
-2. Any new hot-path function (like `_get_cached`) must be mocked in existing unit tests that call the containing function
+When auth middleware is added to `create_app()`, the `api_client` fixture must be updated in the same commit — seed a valid API key in the test DB and include the header on every request.
 
 ### Correction applied
-- `conftest.py`: removed deprecated `event_loop` fixture, added `seeded_api_key` session fixture, updated `api_client` to patch `api.middleware.AsyncSessionLocal` and include `X-API-Key` header
-- `test_projects_api.py`: removed manual override boilerplate, all tests now use `api_client`
-- `test_query_pipeline.py`: `_get_cached` and `_set_cached` mocked in existing test; added cache-hit and stream-bypass tests
-- New `test_middleware.py` and `test_redis_cache.py` added for new infrastructure coverage
+Added `seeded_api_key` session fixture (inserts real `Project`+`APIKey` row into test DB). Updated `api_client` to include `headers={"X-API-Key": seeded_api_key}`.
+
+---
+
+## Error #5 — api_client middleware hitting production DB instead of test DB
+
+**Date:** 2026-03-21
+**Session context:** Same session as error #4. Even with an X-API-Key header added, `api_key_middleware` uses `AsyncSessionLocal` directly — hardcoded to `settings.DATABASE_URL` — not the test DB engine wired through `get_db_session` dependency overrides.
+
+### What happened
+`api_key_middleware` performs its own DB lookup via `AsyncSessionLocal()`. The test `api_client` fixture only overrides the `get_db_session` FastAPI dependency, which the middleware bypasses. Even with a seeded test API key, the auth check would hit the production/configured DB and return 401.
+
+### Root cause
+The middleware was implemented using a direct `AsyncSessionLocal` import rather than the dependency injection system. This is a valid design choice for middleware, but it creates a testing gap: DI overrides don't reach the middleware layer.
+
+### What should have been done
+The `api_client` fixture must patch `api.middleware.AsyncSessionLocal` with the test engine's session factory so the middleware's DB lookup resolves against the test DB.
+
+### Correction applied
+Added `with patch("api.middleware.AsyncSessionLocal", factory):` wrapping the `AsyncClient` context in the `api_client` fixture.
+
+---
+
+## Error #6 — Deprecated event_loop fixture left in conftest
+
+**Date:** 2026-03-21
+**Session context:** `pyproject.toml` had `asyncio_mode = "auto"` configured since Phase 5. The `event_loop` fixture override in `conftest.py` is deprecated with this mode in pytest-asyncio ≥0.21 and causes warnings or failures depending on version.
+
+### What happened
+The `conftest.py` defined a `scope="session"` `event_loop` fixture. With `asyncio_mode = "auto"`, pytest-asyncio manages the event loop itself. The manual override conflicts with this and is flagged as deprecated, potentially causing test collection warnings or hard failures on newer library versions.
+
+### Root cause
+The `event_loop` fixture was added in an earlier phase when manual loop management was needed. When `asyncio_mode = "auto"` was added to `pyproject.toml`, the fixture was not removed.
+
+### What should have been done
+Remove the `event_loop` fixture when `asyncio_mode = "auto"` is set. Add `asyncio_default_fixture_loop_scope = "session"` to `pyproject.toml` so session-scoped async fixtures share the correct event loop.
+
+### Correction applied
+Removed `event_loop` fixture from `conftest.py`. Added `asyncio_default_fixture_loop_scope = "session"` to `pyproject.toml`.
+
+---
+
+## Error #7 — _get_cached and _set_cached not mocked in query pipeline test
+
+**Date:** 2026-03-21
+**Session context:** Redis query cache was added to `run_query` in the infrastructure session. `test_run_query_returns_result_with_tokens` was not updated.
+
+### What happened
+`run_query` now calls `_get_cached` at entry and `_set_cached` after generation. The test did not mock either. With `QUERY_CACHE_TTL=300` (default), `_get_cached` tries to connect to Redis. The `try/except` in the helper swallows the connection error and returns `None`, so the test accidentally passes when Redis is down — but would produce a different execution path if Redis is up. The test outcome depended on external infrastructure state rather than controlled mocks.
+
+### Root cause
+Cache helpers were added to `run_query` without updating the unit test that exercises that function. The silent failure mode of the helpers masked the gap.
+
+### What should have been done
+Any time a function under test gains a new dependency (Redis, DB, external API), that dependency must be mocked in the existing unit tests. The pattern is: add helper → immediately update all tests that call the containing function.
+
+### Correction applied
+Added `patch("ragcore.query.pipeline._get_cached", new=AsyncMock(return_value=None))` and `patch("ragcore.query.pipeline._set_cached", new=AsyncMock())` to `test_run_query_returns_result_with_tokens`. Added explicit tests for cache-hit and stream-bypass behavior.
+
+---
+
+## Error #8 — No test coverage added for new infrastructure in the same session it was written
+
+**Date:** 2026-03-21
+**Session context:** Infrastructure session added rate limiting, CORS hardening, pool sizing, Redis cache. No tests were added.
+
+### What happened
+The entire infrastructure improvement session produced zero new tests. `rate_limit_middleware`, `_get_cached`, `_set_cached`, and `_cache_key` were all shipped with no unit coverage. The test review session (separate) had to reconstruct intent and write coverage retroactively.
+
+### Root cause
+Implementation and testing were treated as separate phases rather than simultaneous work. The infrastructure session was also interrupted mid-task, which reduced the chance of looping back to add tests.
+
+### What should have been done
+New functions (especially middleware and cache helpers) should have tests written in the same commit. At minimum: one happy-path test and one failure/edge-case test per new function, in the same session.
+
+### Correction applied
+Added `tests/unit/test_middleware.py` (7 tests) and `tests/unit/test_redis_cache.py` (11 tests) in the follow-up test review session.
 
 ---
 

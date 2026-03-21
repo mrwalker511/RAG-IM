@@ -11,19 +11,23 @@ Updated at the end of every session. The next session reads this first.
 ## Last Session — 2026-03-21
 
 **Completed:**
-- Infrastructure hardening: configurable CORS, per-key sliding-window rate limiter, SQLAlchemy + Redis connection pool sizing, Redis query result cache with TTL
-- Test suite overhaul: fixed auth failures in all API tests (seeded API key, middleware patched to test DB), added `test_middleware.py` (7 tests) and `test_redis_cache.py` (11 tests), mocked cache helpers in query pipeline tests
-- Project docs fully synced: `AGENTS.md`, `SKILLS.md`, `README.md`, `testing.md`, `GUIDE.md`, `ERRORS.md`, `TOOL.md`
-- Session scaffold files created: `CLAUDE.md`, `STATUS.md`, `DECISIONS.md`, `ROADMAP.md`, `.pre-commit-config.yaml`, `.env.example` updated
+- Framework optimisation: slashed context overhead by ~60%
+  - `CLAUDE.md` rewritten: 82 → 42 lines (lean, auto-loaded, zero waste)
+  - `.claude/AGENTS.md` rewritten: 113 → 55 lines
+  - `.claude/SKILLS.md` rewritten: 175 → 55 lines
+  - `GUIDE.md` trimmed: removed 20-line redundant logging reminder
+  - `TOOL.md` deleted (547 lines, zero remaining value)
+- New session rule: update `STATUS.md` + `ERRORS.md` only if mistakes made. That's it.
 
-**Errors logged:** #2–8 in `ERRORS.md`
+**Prior session (2026-03-21):**
+- Infrastructure hardening: configurable CORS, per-key rate limiting, pool sizing, Redis query cache
+- Test suite overhaul: auth fixtures, middleware tests (7), Redis cache tests (11)
 
 ---
 
 ## In Progress
 
 - PR open against `main` from `claude/infrastructure-improvements-qwsX3`
-- Pre-commit hooks added but not yet installed locally (`pre-commit install`)
 
 ---
 
@@ -31,8 +35,8 @@ Updated at the end of every session. The next session reads this first.
 
 1. Merge infrastructure PR
 2. Integration tests — full ingest → query → cache flow against live services
-3. Tighten CORS in staging: set `CORS_ORIGINS` to explicit origin list
-4. Consider Redis-backed rate limiting if multi-worker deployment is needed (see `DECISIONS.md`)
+3. Document management endpoints — list + delete documents
+4. Observability — structured JSON logs; warn-level log on Redis cache failure
 
 ---
 
@@ -42,5 +46,4 @@ Updated at the end of every session. The next session reads this first.
 |---|---|---|
 | No integration test for full ingest → query flow | `tests/integration/` | High |
 | Rate limiter is in-process only — resets on restart | `api/middleware.py` | Medium |
-| `CORS_ORIGINS=*` is the default — must be restricted before production | `ragcore/config.py` | High |
-| No test for CORS header behavior | `tests/` | Low |
+| `CORS_ORIGINS=*` is the default — restrict before production | `ragcore/config.py` | High |

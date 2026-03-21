@@ -411,4 +411,21 @@ Yes.
 
 ---
 
+---
+
+### Entry #24 — Write (GUIDE.md) — new file
+
+**Date:** 2026-03-21
+**Situation:** User requested a strict prompting standards guide to maintain quality while controlling API costs.
+
+**Tool used:** `Write` — new file creation
+
+**Why this tool was chosen:**
+New file, no prior content. `Write` is the only correct tool. Content was fully defined before writing so a single call was sufficient.
+
+**Was this the right choice?**
+Yes.
+
+---
+
 *Entries are appended each time a tool decision is made. The goal is a running record that makes agent behavior transparent and auditable.*

@@ -67,7 +67,7 @@ async def upload_document(
         filename=file.filename or "unknown",
         content_hash=hashlib.sha256(b"pending").hexdigest(),
         status="pending",
-        metadata={"job_id": job.job_id},
+        meta={"job_id": job.job_id},
     )
     session.add(doc)
     await session.flush()

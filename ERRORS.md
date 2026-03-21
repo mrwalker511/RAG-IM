@@ -1,6 +1,6 @@
 # Agent Error Log
 
-This file documents mistakes made by Claude agents during development of this project.
+This file documents mistakes made by LLM agents during development of this project.
 Each entry records the initial thought process, root cause, and correction applied.
 Purpose: understand failure patterns to reduce cost and improve accuracy over time.
 

@@ -4,7 +4,7 @@ FastAPI + PostgreSQL/pgvector + Redis + ARQ. Multi-project, per-project-isolated
 
 ## Branch
 
-`claude/<description>-<sessionid>` — never `main`. Push: `git push -u origin claude/<branch>`
+`llm/<description>-<sessionid>` — never `main`. Push: `git push -u origin llm/<branch>`
 
 ## Key Files
 

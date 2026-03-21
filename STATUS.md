@@ -6,15 +6,15 @@ Updated at the end of every session. The next session reads this first.
 
 ## Current Branch
 
-`claude/infrastructure-improvements-qwsX3`
+`llm/infrastructure-improvements-qwsX3`
 
 ## Last Session — 2026-03-21
 
 **Completed:**
 - Framework optimisation: slashed context overhead by ~60%
-  - `CLAUDE.md` rewritten: 82 → 42 lines (lean, auto-loaded, zero waste)
-  - `.claude/AGENTS.md` rewritten: 113 → 55 lines
-  - `.claude/SKILLS.md` rewritten: 175 → 55 lines
+  - `AGENT.md` rewritten: 82 → 42 lines (lean, auto-loaded, zero waste)
+  - Agent registry doc rewritten: 113 → 55 lines
+  - Agent skills doc rewritten: 175 → 55 lines
   - `GUIDE.md` trimmed: removed 20-line redundant logging reminder
   - `TOOL.md` deleted (547 lines, zero remaining value)
 - New session rule: update `STATUS.md` + `ERRORS.md` only if mistakes made. That's it.
@@ -27,7 +27,7 @@ Updated at the end of every session. The next session reads this first.
 
 ## In Progress
 
-- PR open against `main` from `claude/infrastructure-improvements-qwsX3`
+- PR open against `main` from `llm/infrastructure-improvements-qwsX3`
 
 ---
 

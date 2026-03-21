@@ -62,7 +62,7 @@ async def run_ingestion(
             filename=file_path.name,
             content_hash=content_hash,
             status="processing",
-            metadata=metadata or {},
+            meta=metadata or {},
         )
         session.add(doc)
     else:
@@ -88,7 +88,7 @@ async def run_ingestion(
                 content=chunk_res.content,
                 embedding=vector,
                 chunk_index=chunk_res.chunk_index,
-                metadata={},
+                meta={},
             )
             session.add(chunk)
 

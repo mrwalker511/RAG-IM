@@ -1,6 +1,6 @@
 # Prompt Standards Guide
 
-Strict rules for prompting Claude agents on this project.
+Strict rules for prompting LLM agents on this project.
 Purpose: maximum quality at minimum token cost. Every wasted token is real money.
 
 ---

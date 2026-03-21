@@ -48,7 +48,7 @@ async def build_bm25_index(project_id: uuid.UUID, session: AsyncSession) -> None
         chunk_indices=[row.Chunk.chunk_index for row in rows],
         filenames=[row.filename for row in rows],
         document_ids=[row.Chunk.document_id for row in rows],
-        metadatas=[row.Chunk.metadata for row in rows],
+        metadatas=[row.Chunk.meta for row in rows],
     )
     serialized = pickle.dumps(payload)
 

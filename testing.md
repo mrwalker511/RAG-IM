@@ -341,7 +341,7 @@ in a thread executor.
 In `.env`:
 ```ini
 LLM_PROVIDER=litellm
-LLM_MODEL=gpt-4o-mini   # or anthropic/claude-3-haiku-20240307, etc.
+LLM_MODEL=gpt-4o-mini   # or any other supported LLM model name
 ```
 
 Restart and repeat §5.6. `tokens_used` must still be non-zero.

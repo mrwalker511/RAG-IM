@@ -39,7 +39,7 @@ async def vector_search(
 
     if filter_dict:
         for key, value in filter_dict.items():
-            stmt = stmt.where(Chunk.metadata[key].astext == str(value))
+            stmt = stmt.where(Chunk.meta[key].astext == str(value))
 
     stmt = stmt.order_by(text("distance")).limit(top_k)
 
@@ -55,7 +55,7 @@ async def vector_search(
             score=1.0 - float(row.distance),  # cosine similarity from distance
             chunk_index=row.Chunk.chunk_index,
             filename=row.filename,
-            metadata=row.Chunk.metadata,
+            metadata=row.Chunk.meta,
         )
         for row in rows
     ]

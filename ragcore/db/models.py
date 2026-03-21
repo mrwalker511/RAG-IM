@@ -42,7 +42,7 @@ class Document(Base):
     filename: Mapped[str] = mapped_column(String(512), nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")  # pending|processing|complete|failed
-    metadata: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    meta: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     project: Mapped["Project"] = relationship("Project", back_populates="documents")
@@ -58,7 +58,7 @@ class Chunk(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     embedding: Mapped[list[float]] = mapped_column(Vector(1536), nullable=True)
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
-    metadata: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    meta: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False, default=dict)
 
     document: Mapped["Document"] = relationship("Document", back_populates="chunks")
 

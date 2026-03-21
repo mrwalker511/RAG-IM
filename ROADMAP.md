@@ -31,7 +31,7 @@ What's done, what's next, and what's deliberately deferred.
 - Test suite overhaul: auth fixtures, middleware tests, Redis cache tests
 
 ### Project Scaffold
-- `CLAUDE.md` auto-loaded session context
+- `AGENT.md` auto-loaded session context
 - `STATUS.md` session handoff
 - `DECISIONS.md` architectural decisions log
 - `GUIDE.md` strict prompt standards

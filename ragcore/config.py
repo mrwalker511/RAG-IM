@@ -33,5 +33,22 @@ class Settings(BaseSettings):
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
 
+    # CORS — comma-separated list of allowed origins; "*" allows all (dev only)
+    CORS_ORIGINS: str = "*"
+
+    # Rate limiting — requests per minute per API key (0 = disabled)
+    RATE_LIMIT_PER_MINUTE: int = 60
+
+    # DB connection pool
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 20
+    DB_POOL_TIMEOUT: int = 30
+
+    # Redis connection pool
+    REDIS_MAX_CONNECTIONS: int = 20
+
+    # Query result cache TTL in seconds (0 = disabled)
+    QUERY_CACHE_TTL: int = 300
+
 
 settings = Settings()

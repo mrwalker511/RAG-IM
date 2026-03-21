@@ -35,4 +35,28 @@ Acknowledged the mistake to the user. Created this log file. Going forward, suba
 
 ---
 
+---
+
+## Error #2 — Cache write missing from query pipeline
+
+**Date:** 2026-03-21
+**Session context:** Implementing Redis query cache as part of infrastructure improvements.
+
+### What happened
+The cache lookup (`_get_cached`) was wired into `run_query` at the start of the function. The cache write (`_set_cached`) after generation was never added — the session was interrupted before that step completed. The function would return results without ever populating the cache.
+
+### Initial thought process (why the agent made this mistake)
+The implementation was interrupted mid-task. After adding the helpers and the lookup, the agent context-switched to TOOL.md logging before completing the write-back. The missing second half of the cache contract was left out.
+
+### Why this caused the error
+Without `_set_cached`, the cache key is checked on every request but never written. Every query pays the full DB + LLM cost on every call with zero cache benefit, while appearing to have caching configured. Silent permanent cache miss.
+
+### What should have been done
+Complete both sides of the cache contract (read + write) in the same edit pass before context-switching to any other task. When `_get_cached` is added at the top of a function, the matching `_set_cached` at the bottom must be added in the same sitting.
+
+### Correction applied
+User flagged the omission. Added `await _set_cached(cache_key, query_result)` immediately before `return query_result` in `ragcore/query/pipeline.py`.
+
+---
+
 *Entries are appended as mistakes are identified. Format: date, context, what happened, root cause, correction.*

@@ -3,8 +3,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.middleware import api_key_middleware
+from api.middleware import api_key_middleware, rate_limit_middleware
 from api.routers import api_keys, documents, projects, query
+from ragcore.config import settings
+from ragcore.db.redis import close_redis_pool
 from ragcore.db.session import engine
 
 
@@ -12,6 +14,7 @@ from ragcore.db.session import engine
 async def lifespan(app: FastAPI):
     yield
     await engine.dispose()
+    await close_redis_pool()
 
 
 def create_app() -> FastAPI:
@@ -22,12 +25,14 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    cors_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",")]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=cors_origins,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["X-API-Key", "Content-Type", "Authorization"],
     )
+    app.middleware("http")(rate_limit_middleware)
     app.middleware("http")(api_key_middleware)
 
     app.include_router(projects.router)

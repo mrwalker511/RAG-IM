@@ -134,4 +134,144 @@ Yes.
 
 ---
 
+---
+
+### Entry #6 — Bash (git log + git branch)
+
+**Date:** 2026-03-21
+**Situation:** Starting infrastructure improvements task. Needed to orient to the current branch state and recent commit history before writing any code.
+
+**Tool used:** `Bash` — `git log --oneline -20 && git branch -a`
+
+**Why this tool was chosen:**
+Git commands require `Bash`. Both commands are independent and chained with `&&` to avoid two round-trips. This was the cheapest way to establish context (branch name, commit history style) before touching files.
+
+**Was this the right choice?**
+Yes. Two git commands, one shell call.
+
+---
+
+### Entry #7 — Bash + Read (parallel orientation)
+
+**Date:** 2026-03-21
+**Situation:** After confirming the branch, needed to understand what was already implemented for security, rate limiting, pool sizing, and Redis cache before writing anything.
+
+**Tools used (parallel):**
+- `Bash` — `ls ragcore/ && ls api/ && ls worker/` to map directory structure
+- `Grep` — pattern-matched across api/ and ragcore/ for `rate_limit`, `redis.*cache`, `pool_size`, `security`, etc.
+- `Read` — `api/middleware.py`, `api/main.py`, `ragcore/config.py` in parallel
+
+**Why these tools were chosen:**
+Directory listing and targeted keyword searches are the cheapest way to answer "does X already exist?" without reading every file. Running all reads in parallel avoids sequential round-trips.
+
+**Was this the right choice?**
+Yes. 3 parallel tool calls answered the full orientation question without an Explore agent.
+
+---
+
+### Entry #8 — Read (db/session.py + query/pipeline.py + requirements.txt)
+
+**Date:** 2026-03-21
+**Situation:** Needed exact current implementation of the DB engine (pool settings) and the query pipeline (cache integration point) before editing them.
+
+**Tools used (parallel):** `Read` on three files simultaneously
+
+**Why this tool was chosen:**
+File paths were already known from prior reads. `Read` is correct; no search needed. Parallel reads avoid sequential wait time.
+
+**Was this the right choice?**
+Yes.
+
+---
+
+### Entry #9 — Edit (ragcore/config.py)
+
+**Date:** 2026-03-21
+**Situation:** Adding new config fields: `CORS_ORIGINS`, `RATE_LIMIT_PER_MINUTE`, `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT`, `REDIS_MAX_CONNECTIONS`, `QUERY_CACHE_TTL`.
+
+**Tool used:** `Edit` — targeted insertion at the end of the Settings class
+
+**Why this tool was chosen:**
+The change was a targeted addition to an existing file. `Edit` sends only the diff; `Write` would rewrite the whole file unnecessarily.
+
+**Was this the right choice?**
+Yes.
+
+---
+
+### Entry #10 — Edit (api/main.py)
+
+**Date:** 2026-03-21
+**Situation:** Wiring configurable CORS origins, rate limit middleware import, and Redis pool teardown into the app factory.
+
+**Tool used:** `Edit` — two separate targeted edits (middleware block, lifespan)
+
+**Why this tool was chosen:**
+Existing file with targeted changes → `Edit`. Used two calls because the two change sites were far apart in the file (different functions).
+
+**Was this the right choice?**
+Yes.
+
+---
+
+### Entry #11 — Edit (api/middleware.py)
+
+**Date:** 2026-03-21
+**Situation:** Adding the sliding-window rate limiter (`rate_limit_middleware`) alongside the existing `api_key_middleware`.
+
+**Tool used:** `Edit` — full replacement of file content via old/new string
+
+**Why this tool was chosen:**
+The new function was large enough that a single `Edit` replacing the whole content was cleaner than multiple small edits. The file was already read earlier in the session so the precondition was met.
+
+**Was this the right choice?**
+Yes.
+
+---
+
+### Entry #12 — Edit (ragcore/db/session.py)
+
+**Date:** 2026-03-21
+**Situation:** Adding explicit pool_size, max_overflow, and pool_timeout to `create_async_engine`.
+
+**Tool used:** `Edit` — targeted replacement of the single `create_async_engine(...)` call
+
+**Why this tool was chosen:**
+Small, targeted change to a known line. `Edit` is correct.
+
+**Was this the right choice?**
+Yes.
+
+---
+
+### Entry #13 — Write (ragcore/db/redis.py)
+
+**Date:** 2026-03-21
+**Situation:** Creating a new shared Redis client module with connection pool configuration.
+
+**Tool used:** `Write` — new file creation
+
+**Why this tool was chosen:**
+File did not exist. `Write` is the only tool for new file creation. `Edit` requires a prior `Read` and cannot create files.
+
+**Was this the right choice?**
+Yes.
+
+---
+
+### Entry #14 — Edit (ragcore/query/pipeline.py) — three passes
+
+**Date:** 2026-03-21
+**Situation:** Adding Redis query cache to the query pipeline: imports, cache helper functions, cache lookup at query start, cache write after generation.
+
+**Tool used:** `Edit` — three separate targeted edits
+
+**Why this tool was chosen:**
+Three logically distinct change sites in one file (imports block, new helper functions, end of `run_query`). Each `Edit` was targeted rather than rewriting the whole file.
+
+**Was this the right choice?**
+Mostly yes. One redundant `Read` mid-session was used to confirm line numbers before the final cache-write edit — that was necessary because the file had grown significantly from prior edits and the offset had shifted.
+
+---
+
 *Entries are appended each time a tool decision is made. The goal is a running record that makes agent behavior transparent and auditable.*

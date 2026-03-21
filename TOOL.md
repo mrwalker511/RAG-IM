@@ -274,4 +274,141 @@ Mostly yes. One redundant `Read` mid-session was used to confirm line numbers be
 
 ---
 
+---
+
+### Entry #15 — Glob (find all test files)
+
+**Date:** 2026-03-21
+**Situation:** User asked to review all test files and ensure correct functions and configuration. First step: enumerate every file in the tests/ tree.
+
+**Tool used:** `Glob` — pattern `tests/**/*.py`
+
+**Why this tool was chosen:**
+`Glob` is the correct tool for finding files by path pattern. No content search needed — just a directory inventory. Single call returned all 16 test files.
+
+**Was this the right choice?**
+Yes. One call, complete result.
+
+---
+
+### Entry #16 — Read (8 source files in parallel)
+
+**Date:** 2026-03-21
+**Situation:** After enumerating test files, needed to read all of them simultaneously to audit content before writing any fixes.
+
+**Tool used:** `Read` — 8 files in parallel (conftest, test_query_pipeline, test_projects_api, test_api_keys, test_chunker, test_parsers, test_hybrid_search, test_generation, test_bm25_index, test_deduplication, test_prompt_builder, test_docx_parser)
+
+**Why this tool was chosen:**
+All file paths known. `Read` in parallel is the fastest approach. No search required.
+
+**Was this the right choice?**
+Yes. Parallel reads across all 12 test files in two batches covered the full audit in minimal round-trips.
+
+---
+
+### Entry #17 — Read (pyproject.toml, api/dependencies.py, ragcore/db/models.py in parallel)
+
+**Date:** 2026-03-21
+**Situation:** After reading tests, needed pytest config (asyncio_mode, testpaths), the dependency injection setup, and the DB models (for seeded fixture design) before writing fixes.
+
+**Tool used:** `Read` — 3 files in parallel
+
+**Why this tool was chosen:**
+All three are reference reads before editing. Known paths → `Read`. Parallel to avoid sequential waits.
+
+**Was this the right choice?**
+Yes.
+
+---
+
+### Entry #18 — Write (tests/conftest.py)
+
+**Date:** 2026-03-21
+**Situation:** Rewriting conftest.py to fix four issues: remove deprecated event_loop fixture, add TEST_API_KEY constant, add seeded_api_key session fixture, update api_client to patch middleware session factory and include X-API-Key header.
+
+**Tool used:** `Write` — full file rewrite
+
+**Why this tool was chosen:**
+The changes touched every section of the file (imports, event_loop removal, new fixture, updated fixture). A full `Write` was cleaner than 4–5 `Edit` calls across a 90-line file.
+
+**Was this the right choice?**
+Yes. Full rewrite was appropriate given the scope of changes.
+
+---
+
+### Entry #19 — Write (tests/api/test_projects_api.py)
+
+**Date:** 2026-03-21
+**Situation:** Rewriting test_projects_api.py to remove its own app fixture and per-test dependency_overrides boilerplate, replacing with the api_client fixture from conftest.
+
+**Tool used:** `Write` — full file rewrite
+
+**Why this tool was chosen:**
+Every test in the file changed (removed manual override blocks, removed app fixture, removed explicit auth-less requests). A full `Write` was more efficient than 6+ `Edit` calls.
+
+**Was this the right choice?**
+Yes.
+
+---
+
+### Entry #20 — Write (tests/unit/test_query_pipeline.py)
+
+**Date:** 2026-03-21
+**Situation:** Adding _get_cached/_set_cached mocks to the existing test, adding two new tests (cache-hit and stream-bypass), removing @pytest.mark.asyncio decorators (redundant with asyncio_mode=auto).
+
+**Tool used:** `Write` — full file rewrite
+
+**Why this tool was chosen:**
+Changes were spread across multiple tests plus new tests added. A `Write` was more efficient than multiple targeted `Edit` calls.
+
+**Was this the right choice?**
+Yes.
+
+---
+
+### Entry #21 — Write (tests/unit/test_middleware.py) — new file
+
+**Date:** 2026-03-21
+**Situation:** Creating new test file covering api_key_middleware and rate_limit_middleware. No prior file existed.
+
+**Tool used:** `Write` — new file creation
+
+**Why this tool was chosen:**
+New file → `Write` is the only option. `Edit` cannot create files.
+
+**Was this the right choice?**
+Yes.
+
+---
+
+### Entry #22 — Write (tests/unit/test_redis_cache.py) — new file
+
+**Date:** 2026-03-21
+**Situation:** Creating new test file covering _cache_key, _get_cached, and _set_cached. No prior file existed.
+
+**Tool used:** `Write` — new file creation
+
+**Why this tool was chosen:**
+New file → `Write`.
+
+**Was this the right choice?**
+Yes.
+
+---
+
+### Entry #23 — Edit (pyproject.toml)
+
+**Date:** 2026-03-21
+**Situation:** Adding asyncio_default_fixture_loop_scope = "session" to pytest config to support session-scoped async fixtures without the deprecated event_loop override.
+
+**Tool used:** `Edit` — targeted single-line addition
+
+**Why this tool was chosen:**
+Small, targeted change to one config block. `Edit` sends only the diff.
+
+**Was this the right choice?**
+Yes.
+
+---
+
 *Entries are appended each time a tool decision is made. The goal is a running record that makes agent behavior transparent and auditable.*

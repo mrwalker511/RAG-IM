@@ -1,25 +1,20 @@
-import asyncio
+import hashlib
 from collections.abc import AsyncGenerator
+from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from ragcore.db.models import Base
+from ragcore.db.models import APIKey, Base, Project
 from ragcore.embeddings.base import BaseEmbedder
 
 TEST_DATABASE_URL = "postgresql+asyncpg://rag:rag@localhost:5432/test_rag"
 
-# ---------------------------------------------------------------------------
-# Event loop
-# ---------------------------------------------------------------------------
-
-@pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
+# Raw key inserted into the test DB once per session; sent in every api_client request.
+TEST_API_KEY = "test-api-key-for-pytest"
+TEST_API_KEY_HASH = hashlib.sha256(TEST_API_KEY.encode()).hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -47,6 +42,28 @@ async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
 
 
 # ---------------------------------------------------------------------------
+# Seeded API key — created once per session, reused by all api_client tests
+# ---------------------------------------------------------------------------
+
+@pytest_asyncio.fixture(scope="session")
+async def seeded_api_key(test_engine) -> str:
+    """Insert a test Project + APIKey into the test DB. Returns the raw key string."""
+    factory = async_sessionmaker(test_engine, expire_on_commit=False)
+    async with factory() as session:
+        project = Project(name="__test_auth_project__")
+        session.add(project)
+        await session.flush()
+        key = APIKey(
+            project_id=project.id,
+            key_hash=TEST_API_KEY_HASH,
+            label="pytest",
+        )
+        session.add(key)
+        await session.commit()
+    return TEST_API_KEY
+
+
+# ---------------------------------------------------------------------------
 # Mock embedder
 # ---------------------------------------------------------------------------
 
@@ -67,14 +84,13 @@ def mock_embedder() -> MockEmbedder:
 
 
 # ---------------------------------------------------------------------------
-# API client (populated in Phase 5)
+# API client — X-API-Key included; middleware uses test DB session factory
 # ---------------------------------------------------------------------------
 
 @pytest_asyncio.fixture
-async def api_client(test_engine) -> AsyncGenerator[AsyncClient, None]:
-    from api.main import create_app
+async def api_client(test_engine, seeded_api_key) -> AsyncGenerator[AsyncClient, None]:
     from api.dependencies import get_db_session
-    from ragcore.db.session import AsyncSessionLocal
+    from api.main import create_app
 
     factory = async_sessionmaker(test_engine, expire_on_commit=False)
 
@@ -85,5 +101,12 @@ async def api_client(test_engine) -> AsyncGenerator[AsyncClient, None]:
     app = create_app()
     app.dependency_overrides[get_db_session] = override_session
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        yield client
+    # Patch the middleware's session factory so auth lookups hit the test DB,
+    # not the production DATABASE_URL.
+    with patch("api.middleware.AsyncSessionLocal", factory):
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+            headers={"X-API-Key": seeded_api_key},
+        ) as client:
+            yield client

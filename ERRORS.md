@@ -83,4 +83,34 @@ Called `Read` on `ERRORS.md` immediately, then re-issued the `Edit` successfully
 
 ---
 
+---
+
+## Error #4 — Tests written without accounting for new middleware
+
+**Date:** 2026-03-21
+**Session context:** Infrastructure improvements added `api_key_middleware` and `rate_limit_middleware` to the app. Existing tests were not updated to match.
+
+### What happened
+After adding auth middleware in the infrastructure session, the existing API test suite was not updated. Specifically:
+- `conftest.py` `api_client` fixture sent no `X-API-Key` header — every request to a gated route would return 401
+- `test_projects_api.py` had its own `app` fixture and per-test `dependency_overrides` with no auth header — same result
+- `test_api_keys.py` relied on `api_client` — all 5 tests would 401
+- `test_query_pipeline.py` did not mock `_get_cached`/`_set_cached` — tests silently relied on Redis being unavailable (cache fails silently) rather than proper isolation
+
+### Root cause
+Infrastructure changes (middleware, Redis cache) were implemented and pushed without simultaneously updating the test suite to reflect the new requirements. The middleware and cache were added in a session that was interrupted, and the test review was a separate session. The gap between implementation and test update allowed multiple test failures to accumulate.
+
+### What should have been done
+When middleware that gates all API requests is added, the test fixtures that exercise those routes must be updated in the same commit. Specifically:
+1. The `api_client` fixture must include the `X-API-Key` header and patch the middleware session factory to use the test DB
+2. Any new hot-path function (like `_get_cached`) must be mocked in existing unit tests that call the containing function
+
+### Correction applied
+- `conftest.py`: removed deprecated `event_loop` fixture, added `seeded_api_key` session fixture, updated `api_client` to patch `api.middleware.AsyncSessionLocal` and include `X-API-Key` header
+- `test_projects_api.py`: removed manual override boilerplate, all tests now use `api_client`
+- `test_query_pipeline.py`: `_get_cached` and `_set_cached` mocked in existing test; added cache-hit and stream-bypass tests
+- New `test_middleware.py` and `test_redis_cache.py` added for new infrastructure coverage
+
+---
+
 *Entries are appended as mistakes are identified. Format: date, context, what happened, root cause, correction.*

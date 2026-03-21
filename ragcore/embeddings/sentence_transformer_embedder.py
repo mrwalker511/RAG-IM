@@ -1,3 +1,6 @@
+import asyncio
+import functools
+
 from ragcore.embeddings.base import BaseEmbedder
 
 _DEFAULT_MODEL = "all-MiniLM-L6-v2"
@@ -23,5 +26,7 @@ class SentenceTransformerEmbedder(BaseEmbedder):
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         model = self._load_model()
-        embeddings = model.encode(texts, show_progress_bar=False)
+        loop = asyncio.get_event_loop()
+        encode = functools.partial(model.encode, texts, show_progress_bar=False)
+        embeddings = await loop.run_in_executor(None, encode)
         return [emb.tolist() for emb in embeddings]

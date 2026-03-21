@@ -3,7 +3,7 @@ from collections.abc import AsyncGenerator
 import litellm
 
 from ragcore.config import settings
-from ragcore.generation.base import BaseLLMGenerator
+from ragcore.generation.base import BaseLLMGenerator, GenerationResult
 
 
 class LiteLLMGenerator(BaseLLMGenerator):
@@ -16,18 +16,20 @@ class LiteLLMGenerator(BaseLLMGenerator):
         self,
         prompt: str,
         stream: bool = False,
-    ) -> str | AsyncGenerator[str, None]:
+    ) -> GenerationResult | AsyncGenerator[str, None]:
         if stream:
             return self._stream(prompt)
         return await self._complete(prompt)
 
-    async def _complete(self, prompt: str) -> str:
+    async def _complete(self, prompt: str) -> GenerationResult:
         response = await litellm.acompletion(
             model=self._model,
             messages=[{"role": "user", "content": prompt}],
             stream=False,
         )
-        return response.choices[0].message.content or ""
+        text = response.choices[0].message.content or ""
+        tokens_used = response.usage.total_tokens if response.usage else 0
+        return GenerationResult(text=text, tokens_used=tokens_used)
 
     async def _stream(self, prompt: str) -> AsyncGenerator[str, None]:
         async def _gen():

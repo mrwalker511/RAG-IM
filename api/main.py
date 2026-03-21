@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.middleware import api_key_middleware
-from api.routers import documents, projects, query
+from api.routers import api_keys, documents, projects, query
 from ragcore.db.session import engine
 
 
@@ -33,6 +33,7 @@ def create_app() -> FastAPI:
     app.include_router(projects.router)
     app.include_router(documents.router)
     app.include_router(query.router)
+    app.include_router(api_keys.router)
 
     @app.get("/health", tags=["health"])
     async def health():

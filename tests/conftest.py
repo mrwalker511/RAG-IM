@@ -1,4 +1,5 @@
 import hashlib
+import os
 from collections.abc import AsyncGenerator
 from unittest.mock import patch
 
@@ -10,7 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from ragcore.db.models import APIKey, Base, Project
 from ragcore.embeddings.base import BaseEmbedder
 
-TEST_DATABASE_URL = "postgresql+asyncpg://rag:rag@localhost:5432/test_rag"
+TEST_DATABASE_URL = os.getenv(
+    "TEST_DATABASE_URL",
+    "postgresql+asyncpg://rag:rag@localhost:5432/test_rag",
+)
 
 # Raw key inserted into the test DB once per session; sent in every api_client request.
 TEST_API_KEY = "test-api-key-for-pytest"

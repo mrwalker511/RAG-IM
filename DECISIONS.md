@@ -10,6 +10,7 @@ Read this before changing any of the systems described here.
 **Decision:** `rate_limit_middleware` uses an in-process `defaultdict(deque)` keyed by API key hash.
 
 **Why:**
+
 - Zero additional infrastructure — Redis is already used for the task queue and query cache, but adding rate limit state there adds latency on every request
 - Acceptable for single-worker deployments
 - State resets on restart, which is acceptable for a per-minute sliding window
@@ -25,6 +26,7 @@ Read this before changing any of the systems described here.
 **Decision:** `api_key_middleware` and `rate_limit_middleware` import `AsyncSessionLocal` directly from `ragcore.db.session` rather than using FastAPI's dependency injection.
 
 **Why:**
+
 - FastAPI middleware runs outside the DI graph — route-level dependencies are not available in middleware
 - Using `Depends()` in middleware is not supported by FastAPI's middleware protocol
 - The alternative (converting auth to a route dependency) would require decorating every router individually
@@ -40,6 +42,7 @@ Read this before changing any of the systems described here.
 **Decision:** `_get_cached` and `_set_cached` in `ragcore/query/pipeline.py` catch all exceptions and return `None` / continue without raising.
 
 **Why:**
+
 - A Redis outage must not degrade query availability — cache is an optimization, not a requirement
 - Silent failure means the system gracefully degrades to uncached behavior
 
@@ -54,6 +57,7 @@ Read this before changing any of the systems described here.
 **Decision:** Document ingestion is queued via ARQ (Redis-backed task queue), not FastAPI's built-in `BackgroundTasks`.
 
 **Why:**
+
 - `BackgroundTasks` run in the same process as the API server — a slow or failing ingestion blocks the worker thread pool and can crash the API under load
 - ARQ provides retry logic, task status tracking, and worker isolation
 - Ingest jobs can be monitored via job ID returned to the client
@@ -67,6 +71,7 @@ Read this before changing any of the systems described here.
 **Decision:** Document parsers use lightweight, pure-Python libraries.
 
 **Why:**
+
 - `unstructured` pulls in heavy native dependencies (tesseract, libmagic, poppler) that significantly bloat the Docker image and complicate CI
 - The supported formats (PDF, DOCX, Markdown, plain text) cover the vast majority of use cases
 - Each parser is a small, testable class implementing `BaseParser`
@@ -80,6 +85,7 @@ Read this before changing any of the systems described here.
 **Decision:** Retrieval combines pgvector cosine similarity and BM25 via Reciprocal Rank Fusion, with optional CrossEncoder re-ranking.
 
 **Why:**
+
 - Pure vector search misses exact keyword matches (e.g., product codes, names, acronyms)
 - Pure BM25 misses semantic similarity
 - RRF is parameter-free (no score normalization needed) and consistently outperforms individual methods
@@ -94,6 +100,7 @@ Read this before changing any of the systems described here.
 **Decision:** Every DB query across documents, chunks, BM25 indexes, query logs, and API keys filters by `project_id`.
 
 **Why:**
+
 - The framework is designed for multi-tenant use — multiple independent projects share one DB
 - Row-level isolation by `project_id` is simpler and more performant than separate schemas or databases per project
 - All queries are indexed on `project_id`
@@ -107,6 +114,7 @@ Read this before changing any of the systems described here.
 **Decision:** Documents are deduplicated by `sha256(file_bytes)` before ingestion.
 
 **Why:**
+
 - Prevents re-embedding identical documents on re-upload (expensive API call)
 - Hash is computed before parsing, so it's format-agnostic
 - 64-char hex string stored in `documents.content_hash` with a unique index

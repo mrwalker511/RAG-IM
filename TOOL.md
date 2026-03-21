@@ -477,4 +477,71 @@ Yes.
 
 ---
 
+---
+
+### Entry #28 — Write (CLAUDE.md) — new file
+
+**Date:** 2026-03-21
+**Situation:** Creating root-level auto-loaded context file for Claude Code sessions.
+
+**Tool used:** `Write` — new file
+
+**Why:** New file. `Write` is the only option. Content fully known before writing — single call sufficient.
+
+**Correct?** Yes.
+
+---
+
+### Entry #29 — Edit (.env.example)
+
+**Date:** 2026-03-21
+**Situation:** Adding 7 new env vars from infrastructure improvements that were missing from the example file.
+
+**Tool used:** `Edit` — targeted addition at end of file
+
+**Why:** File was already read. Small targeted addition — `Edit` sends only the diff.
+
+**Correct?** Yes.
+
+---
+
+### Entry #30 — Write (STATUS.md, DECISIONS.md, ROADMAP.md) — new files
+
+**Date:** 2026-03-21
+**Situation:** Creating session handoff, architectural decisions log, and roadmap files.
+
+**Tool used:** `Write` — three new files
+
+**Why:** All new files. Content for each was fully defined before writing.
+
+**Correct?** Yes.
+
+---
+
+### Entry #31 — Write (.pre-commit-config.yaml) — new file
+
+**Date:** 2026-03-21
+**Situation:** Adding pre-commit hooks for ruff lint/format and basic file hygiene checks.
+
+**Tool used:** `Write` — new file
+
+**Why:** New file.
+
+**Correct?** Yes.
+
+---
+
+### Entry #32 — Edit (GUIDE.md, AGENTS.md, TOOL.md)
+
+**Date:** 2026-03-21
+**Situation:** Updating logging reminder in GUIDE.md to include STATUS.md, DECISIONS.md, ROADMAP.md; adding session files table to AGENTS.md; logging this session's tool decisions.
+
+**Tool used:** `Edit` — targeted additions in each file
+
+**Why:** All files read earlier in session. Targeted additions — `Edit` correct.
+
+**Correct?** Yes.
+
+---
+
 *Entries are appended each time a tool decision is made. The goal is a running record that makes agent behavior transparent and auditable.*

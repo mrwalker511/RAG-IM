@@ -139,6 +139,9 @@ After every session the agent must update **all logs and docs** before committin
 | `.claude/SKILLS.md` | Implementation patterns, auth, cache, rate limiting, testing conventions | New system behavior or testing pattern added |
 | `README.md` | User-facing env vars, architecture, quickstart | New env var or architectural component added |
 | `testing.md` | Test suite inventory, test DB setup, manual smoke tests | New test file added or testing pattern changes |
+| `STATUS.md` | Last session summary, in-progress work, known gaps, up next | End of every session |
+| `DECISIONS.md` | Architectural decisions — choice, why, trade-off, revisit trigger | Any non-obvious architectural choice is made |
+| `ROADMAP.md` | Done, up next, deferred features | Feature completed or priority changes |
 
 **One entry per error** — do not bundle multiple distinct mistakes under one `ERRORS.md` entry.
 

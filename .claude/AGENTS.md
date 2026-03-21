@@ -43,6 +43,18 @@ class BaseLLMGenerator(ABC):
         """Generate answer from prompt."""
 ```
 
+## Session Files (always update before committing)
+
+| File | Purpose |
+|---|---|
+| `CLAUDE.md` | Auto-loaded session context — project rules, key files, logging reminder |
+| `STATUS.md` | Last session summary, in-progress work, known gaps, what's next |
+| `DECISIONS.md` | Architectural decisions with rationale and revisit triggers |
+| `ROADMAP.md` | Done, up next, deliberately deferred features |
+| `GUIDE.md` | Strict prompt standards and cost control rules |
+| `TOOL.md` | Tool decision log — one entry per tool choice per session |
+| `ERRORS.md` | Mistake log — one entry per distinct error |
+
 ## Directory Layout
 
 ```

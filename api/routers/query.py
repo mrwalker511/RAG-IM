@@ -142,8 +142,11 @@ async def stream_query(
         # First event: sources metadata
         yield f"event: sources\ndata: {json.dumps(sources)}\n\n"
         # Subsequent events: token chunks
-        async for token in token_gen:
-            yield f"data: {token}\n\n"
-        yield "data: [DONE]\n\n"
+        try:
+            async for token in token_gen:
+                yield f"data: {token}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as exc:
+            yield f"event: error\ndata: {json.dumps({'detail': str(exc)})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

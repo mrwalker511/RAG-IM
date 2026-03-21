@@ -15,6 +15,7 @@ from api.dependencies import get_db_session
 from ragcore.config import settings
 from ragcore.db.models import Document
 from ragcore.projects.service import get_project
+from ragcore.retrieval.bm25_search import invalidate_bm25_index
 
 router = APIRouter(prefix="/projects/{project_id}/documents", tags=["documents"])
 
@@ -102,3 +103,4 @@ async def delete_document(
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
     await session.delete(doc)
+    await invalidate_bm25_index(project_id, session)

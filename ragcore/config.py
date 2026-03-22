@@ -11,10 +11,10 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379"
 
     # Embeddings
-    EMBEDDING_PROVIDER: str = "openai"  # openai | sentence_transformer
+    EMBEDDING_PROVIDER: str = "sentence_transformer"  # openai | sentence_transformer
     OPENAI_API_KEY: str = ""
     EMBEDDING_MODEL: str = "text-embedding-3-small"
-    EMBEDDING_DIM: int = 1536
+    EMBEDDING_DIM: int = 384  # 384 for sentence_transformer (all-MiniLM-L6-v2), 1536 for openai
 
     # LLM
     LLM_PROVIDER: str = "openai"  # openai | litellm

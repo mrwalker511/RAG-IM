@@ -1,9 +1,13 @@
 """Ingest all project markdown docs directly via ragcore pipeline (no API/worker needed).
 
-Usage:
-    OPENAI_API_KEY=sk-... python scripts/ingest_project_docs.py
+Uses SentenceTransformer (all-MiniLM-L6-v2, 384 dims) — no API key required.
 
-Requires PostgreSQL running and migrations applied (alembic upgrade head).
+Usage:
+    python scripts/ingest_project_docs.py
+
+Requires PostgreSQL running and migrations applied:
+    alembic upgrade head
+
 RAG_PROJECT_NAME env var overrides the default project name "rag-im-docs".
 """
 import asyncio
@@ -15,7 +19,7 @@ from sqlalchemy import select
 
 from ragcore.db.models import Project
 from ragcore.db.session import AsyncSessionLocal
-from ragcore.embeddings.openai_embedder import OpenAIEmbedder
+from ragcore.embeddings.sentence_transformer_embedder import SentenceTransformerEmbedder
 from ragcore.ingestion.pipeline import run_ingestion
 
 PROJECT_NAME = os.getenv("RAG_PROJECT_NAME", "rag-im-docs")
@@ -46,7 +50,7 @@ async def main() -> int:
         print(f"  {f.name}")
     print()
 
-    embedder = OpenAIEmbedder()
+    embedder = SentenceTransformerEmbedder()
     failed = 0
 
     async with AsyncSessionLocal() as session:

@@ -33,6 +33,7 @@ What's done, what's next, and what's deliberately deferred.
 - SQLAlchemy + Redis connection pool sizing
 - Redis query result cache with TTL
 - Test suite overhaul: auth fixtures, middleware tests, Redis cache tests
+- Live Docker smoke test completed under `ragimdev`: upload → ingest → query
 
 ### Project Scaffold
 
@@ -40,17 +41,17 @@ What's done, what's next, and what's deliberately deferred.
 - `STATUS.md` session handoff
 - `DECISIONS.md` architectural decisions log
 - `GUIDE.md` strict prompt standards
-- `TOOL.md` + `ERRORS.md` agent accountability logs
+- `ERRORS.md` agent accountability log
 - `.pre-commit-config.yaml` code quality gates
-- `.env.example` fully updated
+- `.env.example` updated for the current local dev stack
 
 ---
 
 ## Up Next (prioritised)
 
-### 1. Integration Tests
+### 1. Automated Integration Tests
 
-Full ingest → query → cache flow tested against live Postgres + Redis.
+Manual ingest → query flow is now verified against the live `ragimdev` stack. Next step is to automate it.
 
 - Upload a document, wait for worker completion, run a query, assert answer + sources
 - Verify cache hit on second identical query (latency drops, Redis has the key)
@@ -66,10 +67,10 @@ Full ingest → query → cache flow tested against live Postgres + Redis.
 - Structured JSON log output from ingestion and query pipelines (stdlib `logging` + JSON formatter)
 - Emit a warning-level log event when Redis cache read/write fails (currently silent)
 
-### 4. Document Management
+### 4. Dev Ergonomics
 
-- List documents per project endpoint
-- Delete document endpoint (removes chunks, invalidates BM25 index)
+- Investigate intermittent host-side `localhost:8000` failures seen from the shell even when Docker health checks pass
+- Add a small smoke-test helper script so the verified Docker-internal path is one command
 
 ---
 

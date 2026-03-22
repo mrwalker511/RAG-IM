@@ -11,7 +11,7 @@ through live end-to-end smoke tests.
 |---|---|
 | Python | 3.11+ |
 | Docker + Docker Compose | v2+ |
-| An OpenAI API key | (or set `LLM_PROVIDER=litellm` with another key) |
+| LLM provider credentials | Current verified local stack uses `LLM_PROVIDER=litellm` with Mistral |
 
 ---
 
@@ -38,13 +38,21 @@ Minimum `.env` for local testing:
 ```ini
 DATABASE_URL=postgresql+asyncpg://rag:rag@localhost:5433/rag_db
 REDIS_URL=redis://localhost:6379
-OPENAI_API_KEY=sk-...
-EMBEDDING_PROVIDER=openai        # or sentence_transformer (no key needed)
-LLM_PROVIDER=openai              # or litellm
-LLM_MODEL=gpt-4o-mini
-EMBEDDING_MODEL=text-embedding-3-small
-EMBEDDING_DIM=1536
+UPLOAD_TMP_DIR=/tmp
+EMBEDDING_PROVIDER=sentence_transformer
+EMBEDDING_MODEL=all-MiniLM-L6-v2
+EMBEDDING_DIM=384
+LLM_PROVIDER=litellm
+LLM_MODEL=mistral/mistral-small-latest
+# Set the provider credential LiteLLM needs for your chosen model, e.g.
+# MISTRAL_API_KEY=...
 ```
+
+Current verified local stack:
+- Compose project: `ragimdev`
+- Embeddings: local SentenceTransformer
+- LLM: LiteLLM + Mistral
+- Docker Compose overrides `DATABASE_URL`, `REDIS_URL`, and `UPLOAD_TMP_DIR` inside `api` and `worker`
 
 ---
 
@@ -87,19 +95,19 @@ Aim for ≥ 80 % coverage on `ragcore/`.
 Start Postgres and Redis (required for API and integration tests):
 
 ```bash
-docker compose up -d postgres redis
+docker compose -p ragimdev up -d postgres redis
 ```
 
 Wait until healthy:
 
 ```bash
-docker compose ps   # both should show "healthy"
+docker compose -p ragimdev ps   # both should show "healthy"
 ```
 
 ### 3.1 Run database migrations
 
 ```bash
-alembic upgrade head
+docker compose -p ragimdev exec -T api alembic upgrade head
 ```
 
 Verify all tables exist:
@@ -143,29 +151,32 @@ pytest tests/api/ -v
 Start all services:
 
 ```bash
-docker compose up -d
+docker compose -p ragimdev up -d --build
 ```
 
 Check the API is reachable:
 
 ```bash
-curl http://localhost:8000/health
+curl -sS http://localhost:8000/health
 # {"status":"ok"}
 ```
 
+> **Note:** In this workspace, Docker-internal validation has been more reliable than host-side multipart/query requests to `localhost:8000`. The smoke commands below run from inside the `api` container for that reason.
+
 ### 5.1 Create a project
+
+If this workspace already has a seeded bootstrap project/key, see `STATUS.md` and export those values. Otherwise seed one with §5.2.
+
+Once a bootstrap API key exists, create additional projects through the API:
 
 ```bash
 curl -s -X POST http://localhost:8000/projects \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: <any-key-skip-auth-for-now>" \
-  -d '{"name": "test-project"}' | jq .
+  -H "X-API-Key: dev-secret-key" \
+  -d '{"name": "another-project"}' | jq .
 ```
 
-> **Note:** The middleware enforces `X-API-Key` on all non-health routes.
-> For bootstrap, temporarily bypass by either:
-> - Seeding an API key directly (see §5.2), or
-> - Commenting out the middleware in `api/main.py` during setup.
+> **Note:** The middleware enforces `X-API-Key` on all non-health routes, so the first bootstrap project/key must be seeded directly in the DB or created with auth temporarily bypassed.
 
 ### 5.2 Seed a bootstrap API key
 
@@ -199,20 +210,52 @@ Now use `X-API-Key: dev-secret-key` in all subsequent requests.
 ### 5.3 Upload a document
 
 ```bash
-echo "The capital of France is Paris." > /tmp/test.txt
+export PROJECT_ID=<PROJECT_ID>
+export API_KEY=dev-secret-key
 
-curl -s -X POST "http://localhost:8000/projects/<PROJECT_ID>/documents" \
-  -H "X-API-Key: dev-secret-key" \
-  -F "file=@/tmp/test.txt" | jq .
-# {"job_id":"...","document_id":"...","filename":"test.txt"}
+docker compose -p ragimdev exec -T api python - <<'PY'
+import os
+import httpx
+
+files = {
+    "file": ("test.txt", b"The capital of France is Paris.\n", "text/plain"),
+}
+r = httpx.post(
+    f"http://127.0.0.1:8000/projects/{os.environ['PROJECT_ID']}/documents",
+    headers={"X-API-Key": os.environ["API_KEY"]},
+    files=files,
+    timeout=30.0,
+)
+print(r.status_code)
+print(r.text)
+PY
 ```
 
 ### 5.4 Check ingestion status (API)
 
 ```bash
-curl -s "http://localhost:8000/projects/<PROJECT_ID>/documents/<DOCUMENT_ID>/status" \
-  -H "X-API-Key: dev-secret-key" | jq .
-# {"document_id":"...","filename":"test.txt","status":"complete"}
+export DOCUMENT_ID=<DOCUMENT_ID>
+
+docker compose -p ragimdev exec -T api python - <<'PY'
+import os
+import time
+import httpx
+
+url = (
+    "http://127.0.0.1:8000/projects/"
+    f"{os.environ['PROJECT_ID']}/documents/{os.environ['DOCUMENT_ID']}/status"
+)
+headers = {"X-API-Key": os.environ["API_KEY"]}
+
+with httpx.Client(timeout=10.0) as client:
+    deadline = time.time() + 180
+    while time.time() < deadline:
+        r = client.get(url, headers=headers)
+        print(r.status_code, r.text)
+        if r.status_code == 200 and r.json()["status"] in {"complete", "failed"}:
+            break
+        time.sleep(2)
+PY
 ```
 
 ### 5.5 Check ingestion status (CLI)
@@ -230,10 +273,19 @@ Enqueued: 2026-03-21 ...
 ### 5.6 Run a query (non-streaming)
 
 ```bash
-curl -s -X POST "http://localhost:8000/projects/<PROJECT_ID>/query" \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: dev-secret-key" \
-  -d '{"query": "What is the capital of France?"}' | jq .
+docker compose -p ragimdev exec -T api python - <<'PY'
+import os
+import httpx
+
+r = httpx.post(
+    f"http://127.0.0.1:8000/projects/{os.environ['PROJECT_ID']}/query",
+    headers={"X-API-Key": os.environ["API_KEY"]},
+    json={"query": "What is the capital of France?"},
+    timeout=120.0,
+)
+print(r.status_code)
+print(r.text)
+PY
 ```
 
 Expected shape:
@@ -249,6 +301,7 @@ Expected shape:
 Verify:
 - `tokens_used` is **not** 0
 - `sources` contains `test.txt`
+- The first query after a container restart may be slow because the sentence-transformer model warms on first use.
 
 ### 5.7 Run a query (streaming)
 
@@ -341,7 +394,7 @@ in a thread executor.
 In `.env`:
 ```ini
 LLM_PROVIDER=litellm
-LLM_MODEL=gpt-4o-mini   # or any other supported LLM model name
+LLM_MODEL=mistral/mistral-small-latest   # or any other LiteLLM-supported model
 ```
 
 Restart and repeat §5.6. `tokens_used` must still be non-zero.
@@ -430,7 +483,10 @@ pytest tests/ -v --cov=ragcore --cov=api --cov-report=term-missing
 | `tokens_used: 0` in response | Old code path / non-OpenAI provider with `usage=None` | Verify generator returns `GenerationResult`; check `response.usage` |
 | First SSE event is a token, not sources | Old streaming router | Confirm `event: sources` line appears first in the stream |
 | `asyncio.TimeoutError` during embedding | Blocking `encode()` on event loop | Confirm `run_in_executor` is in `sentence_transformer_embedder.py` |
-| Temp file left in `/tmp` after upload failure | Old documents router | Confirm `try/except` wraps the `enqueue_job` call |
+| Upload stays `pending` and worker logs `FileNotFoundError` for `/tmp/...` | API and worker are not sharing upload temp storage | Confirm Compose mounts the shared temp volume and `UPLOAD_TMP_DIR=/shared-tmp` is set for both services |
+| Upload fails with `MissingGreenlet` in ingestion | Async lazy-load on `doc.chunks` | Confirm `run_ingestion` deletes chunks with an explicit SQL query, not by iterating `doc.chunks` |
+| Query fails with `TypeError: 'float' object is not subscriptable` | pgvector distance expression typed as `Vector` instead of numeric | Confirm `ragcore/retrieval/vector_search.py` uses `return_type=Float` for `<=>` |
+| Temp file left in `/tmp` after upload failure | Old worker cleanup path | Confirm `ingest_document` deletes temp files in `finally` |
 | `alembic upgrade head` → `relation does not exist` | Migration file missing | Confirm `alembic/versions/0001_initial_schema.py` exists |
 | BM25 index never rebuilds | Staleness check absent | Confirm `_ensure_bm25_index` compares `updated_at` to `BM25_STALE_AFTER_MINUTES` |
 | `ingest status` prints stub message | Old CLI | Confirm ARQ `Job.status()` is called in `cli/main.py` |

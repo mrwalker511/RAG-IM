@@ -216,4 +216,73 @@ Added `tests/unit/test_middleware.py` (7 tests) and `tests/unit/test_redis_cache
 
 ---
 
+## Error #9 — Upload temp file path assumed to exist across containers
+
+**Date:** 2026-03-22
+**Session context:** Live Docker smoke test under Compose project `ragimdev`.
+
+### What happened
+
+The API saved uploaded files with `tempfile.NamedTemporaryFile()` in its own container filesystem and enqueued that absolute path for the worker. The worker ran in a different container and tried to open the same path, which did not exist there. Uploads stayed `pending`, and worker logs showed `FileNotFoundError` for `/tmp/...`.
+
+### Root cause
+
+The implementation assumed `api` and `worker` shared a filesystem namespace because they both used `/tmp`. Under Docker Compose they are separate containers, so `/tmp/foo.txt` in `api` is not `/tmp/foo.txt` in `worker` unless a shared volume is mounted explicitly.
+
+### What should have been done
+
+Any file handoff between services must use durable shared storage or the queue payload must contain the bytes/object reference instead of a container-local path. For this architecture, the minimum safe fix is a shared volume plus a configured upload temp directory mounted into both services.
+
+### Correction applied
+
+Added `UPLOAD_TMP_DIR` to config, updated the upload router to write temp files there, and mounted a shared `shared_tmp` volume into both `api` and `worker` via `docker-compose.yml`.
+
+---
+
+## Error #10 — Async ingestion path lazily loaded `doc.chunks`
+
+**Date:** 2026-03-22
+**Session context:** Follow-up after fixing the shared upload directory and rerunning the smoke test.
+
+### What happened
+
+`run_ingestion()` reused an existing `Document` row for pending uploads, then removed old chunks by iterating `doc.chunks`. Under `AsyncSession`, this triggered a lazy load during flush/autoflush and raised `MissingGreenlet`.
+
+### Root cause
+
+The ingestion update path mixed async ORM usage with implicit relationship loading. That is fragile in SQLAlchemy async code and failed as soon as a pending document row existed and the relationship had to be loaded from the DB.
+
+### What should have been done
+
+Use an explicit SQL delete for existing chunks in async code instead of touching `doc.chunks` and relying on lazy loading.
+
+### Correction applied
+
+Replaced iteration over `doc.chunks` with `delete(Chunk).where(Chunk.document_id == doc.id)` in `ragcore/ingestion/pipeline.py`.
+
+---
+
+## Error #11 — pgvector distance expression used the wrong SQLAlchemy return type
+
+**Date:** 2026-03-22
+**Session context:** Query phase of the live smoke test after ingestion was fixed.
+
+### What happened
+
+`vector_search()` labeled the `<=>` distance expression with `return_type=Vector`. pgvector then tried to deserialize the numeric distance as if it were a stored embedding vector, and query requests failed with `TypeError: 'float' object is not subscriptable`.
+
+### Root cause
+
+The distance operator returns a scalar numeric value, not a vector. The wrong SQLAlchemy type annotation corrupted result decoding.
+
+### What should have been done
+
+Use a numeric return type (`Float`) for the distance expression and reserve `Vector` for the embedding column itself.
+
+### Correction applied
+
+Changed the `<=>` expression in `ragcore/retrieval/vector_search.py` to `return_type=Float`.
+
+---
+
 *Entries are appended as mistakes are identified. Format: date, context, what happened, root cause, correction.*

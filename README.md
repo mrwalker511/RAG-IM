@@ -32,24 +32,41 @@ A production-grade, reusable Retrieval-Augmented Generation (RAG) framework. Eac
 | Parsing | pypdf, python-docx, markdown-it-py |
 | CLI | Typer + Rich |
 
+## Current Local Dev Stack
+
+- Compose project name: `ragimdev`
+- Embeddings: `sentence_transformer` with `all-MiniLM-L6-v2` (`384` dims)
+- LLM: `litellm` with `mistral/mistral-small-latest`
+- API + worker upload handoff: shared temp volume via `UPLOAD_TMP_DIR=/shared-tmp`
+- Health check: `http://localhost:8000/health`
+
 ## Quickstart
 
 ```bash
 # 1. Clone and configure
 cp .env.example .env
-# Edit .env — set OPENAI_API_KEY at minimum
+# Edit .env for your provider credentials
+# Current local dev example in .env.example uses LiteLLM + Mistral and local sentence-transformer embeddings
 
 # 2. Start services
-docker compose up -d
+docker compose -p ragimdev up -d --build
 
 # 3. Run migrations
-docker compose exec api alembic upgrade head
+docker compose -p ragimdev exec -T api alembic upgrade head
 
-# 4. Install CLI locally
+# 4. Verify health
+curl -sS http://localhost:8000/health
+# {"status":"ok"}
+
+# 5. Install CLI locally (optional)
 pip install -r requirements.txt
 ```
 
+Compose overrides `DATABASE_URL`, `REDIS_URL`, and `UPLOAD_TMP_DIR` for the `api` and `worker` containers so they talk to the internal `postgres` and `redis` services and share upload temp files. On this machine, Docker-internal validation has been more reliable than host-side DB access.
+
 ## Environment Variables
+
+The table below lists code defaults from `ragcore/config.py`. See `.env.example` for the current local development example values.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -68,6 +85,7 @@ pip install -r requirements.txt
 | `BM25_STALE_AFTER_MINUTES` | `60` | BM25 index rebuild threshold |
 | `API_HOST` | `0.0.0.0` | API bind host |
 | `API_PORT` | `8000` | API bind port |
+| `UPLOAD_TMP_DIR` | `/tmp` | Temp directory used before the worker ingests uploads |
 | `CORS_ORIGINS` | `*` | Comma-separated allowed origins; restrict in production |
 | `RATE_LIMIT_PER_MINUTE` | `60` | Per-API-key sliding-window rate limit; `0` = disabled |
 | `DB_POOL_SIZE` | `10` | SQLAlchemy connection pool size |

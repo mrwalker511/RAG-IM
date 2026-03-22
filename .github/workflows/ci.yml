@@ -85,3 +85,9 @@ jobs:
             --cov-report=term-missing \
             --cov-fail-under=60 \
             -v
+
+      - name: Run DB-backed API and integration tests
+        env:
+          TEST_DATABASE_URL: postgresql+asyncpg://rag:rag@localhost:5433/test_rag
+        run: |
+          pytest tests/api tests/integration -v

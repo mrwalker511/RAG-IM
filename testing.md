@@ -34,6 +34,8 @@ Run from the host:
 env TEST_DATABASE_URL=postgresql+asyncpg://rag:rag@localhost:5433/test_rag ./.venv/bin/pytest tests/api tests/integration -v
 ```
 
+This is the same DB-backed command path CI now uses.
+
 If host networking is flaky, run the same suites inside `api`:
 
 ```bash

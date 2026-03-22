@@ -12,6 +12,7 @@
 - Linked the Control Room at `/` to the handbook and OpenAPI
 - Refreshed the Markdown docs to match the current auth model, web surfaces, and test workflow
 - Kept `testing.md` to a short bring-up and verification runbook
+- Updated CI to run `tests/api` and `tests/integration` against the dedicated `postgres_test` service
 
 ### Validation
 

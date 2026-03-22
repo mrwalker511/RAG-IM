@@ -88,6 +88,7 @@ Then open:
 - Fast path: see [testing.md](testing.md)
 - Unit-only: `pytest tests/unit -v`
 - DB-backed: create `test_rag`, then run `env TEST_DATABASE_URL=postgresql+asyncpg://rag:rag@localhost:5433/test_rag ./.venv/bin/pytest tests/api tests/integration -v`
+- CI now runs `tests/unit`, then `tests/api` and `tests/integration` against the dedicated `postgres_test` service on port `5433`
 
 If host-side `localhost:5433` or `localhost:8000` is unreliable in your shell, run the DB-backed tests or smoke commands from inside the `api` container instead.
 

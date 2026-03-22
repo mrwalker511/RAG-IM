@@ -55,7 +55,9 @@ async def upload_document(
 
     # Save to temp file for worker
     suffix = Path(file.filename or "upload").suffix
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+    upload_dir = Path(settings.UPLOAD_TMP_DIR)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix, dir=upload_dir) as tmp:
         shutil.copyfileobj(file.file, tmp)
         tmp_path = tmp.name
     content_hash = compute_hash(Path(tmp_path))

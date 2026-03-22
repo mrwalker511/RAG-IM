@@ -2,7 +2,7 @@ import logging
 import uuid
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ragcore.db.models import Chunk, Document
@@ -92,9 +92,8 @@ async def run_ingestion(
         doc.content_hash = content_hash
         if metadata:
             doc.meta = {**doc.meta, **metadata}
-        # Remove old chunks so we can replace them
-        for chunk in list(doc.chunks):
-            await session.delete(chunk)
+        # Avoid lazy-loading doc.chunks under AsyncSession.
+        await session.execute(delete(Chunk).where(Chunk.document_id == doc.id))
 
     await session.flush()
 

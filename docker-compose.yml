@@ -34,6 +34,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://rag:rag@postgres:5432/rag_db
       REDIS_URL: redis://redis:6379
+      UPLOAD_TMP_DIR: /shared-tmp
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,6 +42,7 @@ services:
         condition: service_healthy
     volumes:
       - .:/app
+      - shared_tmp:/shared-tmp
 
   worker:
     build: .
@@ -49,6 +51,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://rag:rag@postgres:5432/rag_db
       REDIS_URL: redis://redis:6379
+      UPLOAD_TMP_DIR: /shared-tmp
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,6 +59,8 @@ services:
         condition: service_healthy
     volumes:
       - .:/app
+      - shared_tmp:/shared-tmp
 
 volumes:
   postgres_data:
+  shared_tmp:

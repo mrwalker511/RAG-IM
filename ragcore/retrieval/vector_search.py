@@ -1,8 +1,7 @@
 import uuid
 from dataclasses import dataclass
 
-from pgvector.sqlalchemy import Vector
-from sqlalchemy import select, text
+from sqlalchemy import Float, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ragcore.db.models import Chunk, Document
@@ -31,7 +30,7 @@ async def vector_search(
         select(
             Chunk,
             Document.filename,
-            (Chunk.embedding.op("<=>", return_type=Vector)(query_vector)).label("distance"),
+            (Chunk.embedding.op("<=>", return_type=Float)(query_vector)).label("distance"),
         )
         .join(Document, Chunk.document_id == Document.id)
         .where(Chunk.project_id == project_id)

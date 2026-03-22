@@ -32,5 +32,6 @@ scikit-learn
 # Config & CLI
 pydantic-settings
 python-dotenv
+python-multipart
 typer
 rich

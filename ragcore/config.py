@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     # API
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
+    UPLOAD_TMP_DIR: str = "/tmp"
 
     # CORS — comma-separated list of allowed origins; "*" allows all (dev only)
     CORS_ORIGINS: str = "*"

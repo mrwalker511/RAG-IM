@@ -189,6 +189,28 @@
       transition: transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
     }
 
+    .button-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 12px 18px;
+      color: white;
+      text-decoration: none;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+      box-shadow: 0 12px 28px rgba(15, 118, 110, 0.25);
+      transition: transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+    }
+
+    .button-link.secondary {
+      color: var(--ink);
+      background: white;
+      border: 1px solid rgba(29, 42, 43, 0.12);
+      box-shadow: none;
+    }
+
     button.secondary {
       color: var(--ink);
       background: white;
@@ -197,6 +219,10 @@
     }
 
     button:hover {
+      transform: translateY(-1px);
+    }
+
+    .button-link:hover {
       transform: translateY(-1px);
     }
 
@@ -327,6 +353,10 @@
         Use your bootstrap key to create or list projects, then upload documents and run queries
         with either the bootstrap key or a project-scoped key.
       </p>
+      <div class="actions" style="margin-top: 18px;">
+        <a class="button-link secondary" href="/handbook">Browse Project Docs</a>
+        <a class="button-link secondary" href="/docs">OpenAPI</a>
+      </div>
     </section>
 
     <section class="layout">

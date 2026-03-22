@@ -1,48 +1,41 @@
-
 # RAG-IM
 
-FastAPI + PostgreSQL/pgvector + Redis + ARQ. Multi-project, per-project-isolated, async-first.
-
-## Branch
-
-`llm/<description>-<sessionid>` — never `main`. Push: `git push -u origin llm/<branch>`
+FastAPI + PostgreSQL/pgvector + Redis + ARQ. Multi-project, async-first, project-isolated.
 
 ## Key Files
 
 | File | Purpose |
 |---|---|
-| `ragcore/config.py` | All settings — check before adding env vars |
-| `ragcore/query/pipeline.py` | Query pipeline + Redis cache (`_get_cached`, `_set_cached`) |
-| `api/middleware.py` | Auth (`api_key_middleware`) + rate limiting (`rate_limit_middleware`) |
-| `ragcore/db/session.py` | SQLAlchemy engine (pool settings) |
-| `ragcore/db/redis.py` | Redis client + connection pool |
-| `ragcore/bootstrap.py` | Bootstrap project + admin key seeding |
-| `tests/conftest.py` | `seeded_api_key`, `api_client` (patches middleware, sends X-API-Key) |
+| `api/main.py` | App factory, root UI, and handbook pages |
+| `api/middleware.py` | Auth and rate limiting |
+| `ragcore/bootstrap.py` | Bootstrap project and key seeding |
+| `ragcore/config.py` | All settings |
+| `ragcore/query/pipeline.py` | Query flow and Redis cache |
+| `tests/conftest.py` | Test DB fixtures and auth patching |
 
 ## Critical Rules
 
-1. **Middleware bypasses DI.** Patch `api.middleware.AsyncSessionLocal` in tests — `app.dependency_overrides` doesn't reach it.
-2. **Bootstrap key is special.** `/projects` create/list requires the bootstrap key; project keys are project-scoped.
-3. **Redis cache errors are silent.** Cache helpers catch all exceptions. Redis outage must never break queries.
-4. **Tests ship with implementation.** New functions get tests in the same commit.
-5. **Read before Edit.** Always `Read` a file before `Edit`, even if read in a prior session.
-6. **No force push.** Never push to `main`. Never `--force` without explicit instruction.
+1. Middleware auth bypasses FastAPI DI; patch `api.middleware.AsyncSessionLocal` in tests.
+2. `BOOTSTRAP_API_KEY` is special; `/projects` create/list is bootstrap-only.
+3. Project-scoped keys must never cross project boundaries.
+4. Cache and rate-limit Redis failures should not take the API down.
+5. New behavior ships with tests in the same change.
+6. Update `STATUS.md` at the end of a work session.
 
-## Tests
+## Validation
 
 ```bash
-pytest tests/unit/ -v                                                      # unit only (no services)
-TEST_DATABASE_URL=... pytest tests/api tests/integration -v                # DB-backed suites
-pytest tests/unit/ --cov=ragcore --cov=api --cov-report=term-missing
+pytest tests/unit -v
+env TEST_DATABASE_URL=... pytest tests/api tests/integration -v
+python -m compileall api ragcore tests
 ```
 
-`asyncio_mode = "auto"` — no `@pytest.mark.asyncio` needed.
+## Browser Surfaces
+
+- `/` — Control Room
+- `/handbook` — Markdown docs browser
+- `/docs` — OpenAPI
 
 ## Prompting
 
-Name the file and function. State the expected outcome. Say what not to change.
-Exact error text > paraphrase. One task per message. See `GUIDE.md` for templates.
-
-## Session End
-
-Update `STATUS.md`. Append `ERRORS.md` only if mistakes were made. That's it.
+Name the file, function, or route. Include the expected result. Include exact error text when debugging. For doc work, name the Markdown files explicitly.

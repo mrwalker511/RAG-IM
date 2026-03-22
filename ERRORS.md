@@ -3,6 +3,7 @@
 This file documents mistakes made by LLM agents during development of this project.
 Each entry records the initial thought process, root cause, and correction applied.
 Purpose: understand failure patterns to reduce cost and improve accuracy over time.
+Current through 2026-03-22. No new entries were added in the handbook/docs refresh session.
 
 ---
 

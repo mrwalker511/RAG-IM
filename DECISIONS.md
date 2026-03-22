@@ -2,55 +2,38 @@
 
 ## 001 — Redis-backed shared rate limiting
 
-**Decision:** `rate_limit_middleware` stores per-key request windows in Redis sorted sets.
+`rate_limit_middleware` stores request windows in Redis sorted sets so throttling stays consistent across multiple API workers.
 
-**Why:**
+Trade-off: Redis is on the request path for limiting, so the middleware fails open if Redis is unavailable.
 
-- Works correctly across multiple API workers
-- Reuses infrastructure already required for ARQ and query caching
-- Keeps rate-limit behavior consistent after horizontal scaling
+## 002 — Auth stays in middleware, not route DI
 
-**Trade-off:** Redis is now on the request path for limiting. The middleware fails open if Redis is unavailable so availability wins over strict throttling.
+Authentication and project-scope checks use `AsyncSessionLocal` directly in middleware because the policy must apply globally, outside FastAPI dependency injection.
 
-## 002 — Middleware still uses `AsyncSessionLocal` directly
-
-**Decision:** Auth remains in FastAPI middleware and uses `AsyncSessionLocal` instead of route DI.
-
-**Why:**
-
-- Middleware runs outside FastAPI dependency injection
-- The auth and project-scope check should apply globally, not router-by-router
-
-**Trade-off:** Tests must patch `api.middleware.AsyncSessionLocal` and bootstrap-key detection explicitly.
+Trade-off: tests must patch `api.middleware.AsyncSessionLocal` and bootstrap-key detection explicitly.
 
 ## 003 — Bootstrap admin key plus project-scoped keys
 
-**Decision:** `/projects` create/list is reserved for `BOOTSTRAP_API_KEY`; project routes require either the bootstrap key or a key bound to the matching `project_id`.
+`BOOTSTRAP_API_KEY` is reserved for project creation and listing. Project routes accept either the bootstrap key or a key whose `project_id` matches the URL.
 
-**Why:**
+Trade-off: bootstrap key handling is now an operational responsibility.
 
-- Fixes the previous cross-project authorization hole
-- Preserves a simple first-run bootstrap path for fresh deployments
-- Keeps normal runtime access scoped to one project
+## 004 — Cache failures do not break queries
 
-**Trade-off:** Bootstrap key management is now an operational responsibility and should be rotated out of normal traffic.
+Query-cache reads and writes fall back to uncached behavior if Redis errors.
 
-## 004 — Redis cache failures do not break queries
+Trade-off: without logging or metrics, cache outages are easy to miss.
 
-**Decision:** Query-cache reads and writes catch exceptions and fall back to uncached behavior.
+## 005 — ARQ remains the ingestion boundary
 
-**Why:** Cache availability must not determine query availability.
-
-**Trade-off:** Without external monitoring, a cache outage is easy to miss.
-
-## 005 — ARQ for ingestion
-
-**Decision:** Document ingestion remains in ARQ workers, not FastAPI background tasks.
-
-**Why:** Uploads should return immediately and ingestion failures should be isolated from the API process.
+Document ingestion stays in workers rather than FastAPI background tasks so uploads return quickly and ingestion failures stay isolated from the API process.
 
 ## 006 — Lightweight parser stack
 
-**Decision:** Parsing stays on `pypdf`, `python-docx`, and `markdown-it-py`, not `unstructured`.
+Parsing stays on `pypdf`, `python-docx`, and `markdown-it-py` rather than heavier parser stacks.
 
-**Why:** The current format set is sufficient and avoids heavy native dependencies.
+## 007 — Handbook routes are public and repo-backed
+
+`/handbook` and `/handbook/{doc}` are exempt from API-key auth and render the checked-in Markdown files directly from the repo.
+
+Trade-off: the public docs surface must stay curated; only the published Markdown allowlist should be routable.

@@ -16,6 +16,7 @@ from ragcore.db.redis import get_redis
 from ragcore.db.session import AsyncSessionLocal
 
 _EXEMPT_PATHS = {"/", "/docs", "/openapi.json", "/redoc", "/health"}
+_EXEMPT_PREFIXES = ("/handbook",)
 _RATE_LIMIT_WINDOW_SECONDS = 60
 _PROJECT_PATH_RE = re_compile(r"^/projects/([^/]+)(?:/|$)")
 _RATE_LIMIT_SCRIPT = """
@@ -45,7 +46,12 @@ logger = logging.getLogger(__name__)
 
 
 def _is_exempt_request(request: Request) -> bool:
-    return request.method == "OPTIONS" or request.url.path in _EXEMPT_PATHS
+    path = request.url.path
+    return (
+        request.method == "OPTIONS"
+        or path in _EXEMPT_PATHS
+        or any(path.startswith(prefix) for prefix in _EXEMPT_PREFIXES)
+    )
 
 
 def _is_bootstrap_key(raw_key: str) -> bool:

@@ -28,6 +28,43 @@ async def test_root_serves_web_app_without_auth():
     assert "bootstrap-test-key" in resp.text
 
 
+async def test_handbook_index_serves_doc_browser_without_auth():
+    from api.main import create_app
+
+    app = create_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get("/handbook")
+
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers["content-type"]
+    assert "Project Handbook" in resp.text
+    assert "README.md" in resp.text
+
+
+async def test_handbook_doc_serves_rendered_markdown_without_auth():
+    from api.main import create_app
+
+    app = create_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get("/handbook/README.md")
+
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers["content-type"]
+    assert "RAG Framework" in resp.text
+    assert "<h1>RAG Framework</h1>" in resp.text
+
+
+async def test_handbook_missing_doc_returns_404():
+    from api.main import create_app
+
+    app = create_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get("/handbook/not-real.md")
+
+    assert resp.status_code == 404
+    assert "Document not found" in resp.text
+
+
 async def test_cors_preflight_returns_expected_headers():
     from api.main import create_app
 

@@ -41,6 +41,8 @@ async def test_run_query_returns_result_with_tokens(mock_embedder):
         patch("ragcore.query.pipeline._ensure_bm25_index", new=AsyncMock()),
         patch("ragcore.query.pipeline.bm25_search", new=AsyncMock(return_value=[])),
         patch("ragcore.query.pipeline.reciprocal_rank_fusion", return_value=chunks),
+        patch("ragcore.query.pipeline.local_graph_search", new=AsyncMock(return_value=MagicMock(chunks=[], entities=[], relations=[]))),
+        patch("ragcore.query.pipeline.global_graph_search", new=AsyncMock(return_value=MagicMock(chunks=[], entities=[], relations=[]))),
         patch("ragcore.query.pipeline.log_query_event", new=AsyncMock()),
         patch("ragcore.query.pipeline._get_cached", new=AsyncMock(return_value=None)),
         patch("ragcore.query.pipeline._set_cached", new=AsyncMock()),
@@ -57,6 +59,8 @@ async def test_run_query_returns_result_with_tokens(mock_embedder):
     assert result.answer == "The answer"
     assert result.tokens_used == 99
     assert len(result.sources) == 1
+    assert result.retrieval_trace["mode"] == "hybrid"
+    assert result.eval_payload["mode"] == "hybrid"
 
 
 async def test_run_query_returns_cached_result_without_hitting_llm(mock_embedder):
@@ -108,6 +112,8 @@ async def test_run_query_stream_bypasses_cache(mock_embedder):
         patch("ragcore.query.pipeline._ensure_bm25_index", new=AsyncMock()),
         patch("ragcore.query.pipeline.bm25_search", new=AsyncMock(return_value=[])),
         patch("ragcore.query.pipeline.reciprocal_rank_fusion", return_value=[]),
+        patch("ragcore.query.pipeline.local_graph_search", new=AsyncMock(return_value=MagicMock(chunks=[], entities=[], relations=[]))),
+        patch("ragcore.query.pipeline.global_graph_search", new=AsyncMock(return_value=MagicMock(chunks=[], entities=[], relations=[]))),
     ):
         result = await run_query(
             project_id=project_id,
@@ -141,6 +147,8 @@ async def test_run_query_stream_returns_async_gen(mock_embedder):
         patch("ragcore.query.pipeline._ensure_bm25_index", new=AsyncMock()),
         patch("ragcore.query.pipeline.bm25_search", new=AsyncMock(return_value=[])),
         patch("ragcore.query.pipeline.reciprocal_rank_fusion", return_value=[]),
+        patch("ragcore.query.pipeline.local_graph_search", new=AsyncMock(return_value=MagicMock(chunks=[], entities=[], relations=[]))),
+        patch("ragcore.query.pipeline.global_graph_search", new=AsyncMock(return_value=MagicMock(chunks=[], entities=[], relations=[]))),
     ):
         result = await run_query(
             project_id=project_id,
@@ -189,3 +197,34 @@ async def test_ensure_bm25_index_skips_when_fresh():
     with patch("ragcore.query.pipeline.build_bm25_index", new=AsyncMock()) as mock_build:
         await _ensure_bm25_index(project_id, mock_session)
         mock_build.assert_not_awaited()
+
+
+async def test_run_query_local_mode_uses_graph_results(mock_embedder):
+    project_id = uuid.uuid4()
+    mock_session = AsyncMock()
+    mock_generator = AsyncMock()
+    mock_generator.generate = AsyncMock(return_value=GenerationResult(text="graph answer", tokens_used=7))
+    graph_chunk = _make_chunk("graph context")
+
+    with (
+        patch("ragcore.query.pipeline.local_graph_search", new=AsyncMock(return_value=MagicMock(
+            chunks=[graph_chunk],
+            entities=[{"name": "Graph Node", "score": 2.0}],
+            relations=[],
+        ))),
+        patch("ragcore.query.pipeline.log_query_event", new=AsyncMock()),
+        patch("ragcore.query.pipeline._get_cached", new=AsyncMock(return_value=None)),
+        patch("ragcore.query.pipeline._set_cached", new=AsyncMock()),
+    ):
+        result = await run_query(
+            project_id=project_id,
+            query_text="Tell me about Graph Node",
+            session=mock_session,
+            embedder=mock_embedder,
+            generator=mock_generator,
+            mode="local",
+        )
+
+    assert result.answer == "graph answer"
+    assert result.retrieval_trace["mode"] == "local"
+    assert result.retrieval_trace["graph_entities"][0]["name"] == "Graph Node"

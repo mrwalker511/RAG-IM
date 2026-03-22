@@ -91,11 +91,11 @@ async def test_upload_ingest_query_and_cache(api_client, test_engine):
     ):
         first_query = await api_client.post(
             f"/projects/{project_id}/query",
-            json={"query": "What is the deployment code phrase?", "rerank": False},
+            json={"query": "What is the deployment code phrase?", "rerank": False, "mode": "naive"},
         )
         second_query = await api_client.post(
             f"/projects/{project_id}/query",
-            json={"query": "What is the deployment code phrase?", "rerank": False},
+            json={"query": "What is the deployment code phrase?", "rerank": False, "mode": "naive"},
         )
 
     assert first_query.status_code == 200
@@ -111,5 +111,6 @@ async def test_upload_ingest_query_and_cache(api_client, test_engine):
         uuid.UUID(project_id),
         "What is the deployment code phrase?",
         5,
+        mode="naive",
     )
     assert expected_cache_key in fake_cache.store

@@ -1,6 +1,6 @@
-# RAG Framework
+# RAG-IM
 
-Reusable FastAPI + PostgreSQL/pgvector + Redis RAG service with async ingestion, hybrid retrieval, source attribution, and project isolation.
+Reusable FastAPI + PostgreSQL/pgvector + Redis RAG service with async ingestion, graph-aware retrieval, source attribution, and project isolation.
 
 ## Web Surfaces
 
@@ -11,10 +11,14 @@ Reusable FastAPI + PostgreSQL/pgvector + Redis RAG service with async ingestion,
 ## What Ships
 
 - PDF, DOCX, Markdown, and text ingestion
+- Query modes: `naive`, `local`, `global`, `hybrid`, and `mix`
 - pgvector + BM25 retrieval with optional reranking
+- Lightweight graph extraction plus local/global graph retrieval
 - Streaming and non-streaming query endpoints
+- Optional retrieval-trace and eval payloads on query responses
 - Redis-backed query cache
 - Redis-backed shared rate limiting
+- BM25, graph, and query-cache maintenance on document ingest/delete
 - Bootstrap admin key plus project-scoped API keys
 - Docker Compose stack with API, worker, Postgres, and Redis
 
@@ -51,13 +55,14 @@ Then open:
 | Embeddings | `sentence_transformer` + `all-MiniLM-L6-v2` |
 | Embedding dimension | `384` |
 | LLM example | `litellm` + `mistral/mistral-small-latest` |
+| Host Postgres port | `5433` |
 | Shared upload dir in Compose | `/shared-tmp` |
 
 ## Important Environment Variables
 
 | Variable | Default | Notes |
 |---|---|---|
-| `DATABASE_URL` | `postgresql+asyncpg://rag:rag@localhost:5432/rag_db` | Compose overrides this inside containers |
+| `DATABASE_URL` | `postgresql+asyncpg://rag:rag@localhost:5433/rag_db` | Compose overrides this inside containers |
 | `REDIS_URL` | `redis://localhost:6379` | Queue, cache, and rate limiting |
 | `BOOTSTRAP_PROJECT_NAME` | empty | Auto-created when bootstrap seeding runs |
 | `BOOTSTRAP_API_KEY` | empty | Required for first-run provisioning |
@@ -80,8 +85,11 @@ Then open:
 | `POST` | `/projects/{id}/documents` | Upload document |
 | `GET` | `/projects/{id}/documents` | List documents |
 | `GET` | `/projects/{id}/documents/{doc_id}/status` | Check ingestion status |
+| `DELETE` | `/projects/{id}/documents/{doc_id}` | Delete document and invalidate derived indexes |
 | `POST` | `/projects/{id}/query` | Query |
 | `GET` | `/projects/{id}/query/stream?q=...` | Stream query |
+
+`POST /projects/{id}/query` accepts `mode` (`naive`, `local`, `global`, `hybrid`, `mix`), `rerank`, `include_context`, and `include_eval`.
 
 ## Testing
 

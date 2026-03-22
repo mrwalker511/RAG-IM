@@ -37,3 +37,15 @@ Parsing stays on `pypdf`, `python-docx`, and `markdown-it-py` rather than heavie
 `/handbook` and `/handbook/{doc}` are exempt from API-key auth and render the checked-in Markdown files directly from the repo.
 
 Trade-off: the public docs surface must stay curated; only the published Markdown allowlist should be routable.
+
+## 008 — Graph retrieval is an explicit query-mode choice
+
+The query API exposes `naive`, `local`, `global`, `hybrid`, and `mix` modes rather than silently choosing one retrieval strategy behind the scenes.
+
+Trade-off: clients need to decide which retrieval mode they want, but behavior stays inspectable and easier to test.
+
+## 009 — Document mutations eagerly invalidate derived state
+
+Document ingestion and deletion trigger graph cleanup, BM25 invalidation, and Redis query-cache invalidation immediately instead of waiting for background reconciliation.
+
+Trade-off: write paths do slightly more work, but stale retrieval state is less likely to leak into user-visible queries.

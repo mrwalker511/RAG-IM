@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from ragcore.generation.base import GenerationResult
+from ragcore.query.pipeline import PreparedQueryContext
 from ragcore.retrieval.vector_search import ChunkResult
 
 
@@ -82,6 +83,31 @@ async def test_query_with_rerank_false(api_client):
 
 
 @pytest.mark.asyncio
+async def test_query_can_return_retrieval_and_eval(api_client):
+    proj_resp = await api_client.post("/projects", json={"name": "query-trace-project"})
+    project_id = proj_resp.json()["id"]
+
+    mock_result = MagicMock()
+    mock_result.answer = "Paris"
+    mock_result.sources = [_make_chunk_result(uuid.UUID(project_id))]
+    mock_result.latency_ms = 11
+    mock_result.tokens_used = 12
+    mock_result.retrieval_trace = {"mode": "global", "selected_contexts": []}
+    mock_result.eval_payload = {"question": "Where?", "answer": "Paris"}
+
+    with patch("api.routers.query.run_query", new_callable=AsyncMock, return_value=mock_result):
+        resp = await api_client.post(
+            f"/projects/{project_id}/query",
+            json={"query": "Where?", "mode": "global", "include_context": True, "include_eval": True},
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["retrieval"]["mode"] == "global"
+    assert data["eval"]["answer"] == "Paris"
+
+
+@pytest.mark.asyncio
 async def test_stream_query_project_not_found(api_client):
     resp = await api_client.get(
         f"/projects/{uuid.uuid4()}/query/stream",
@@ -104,9 +130,11 @@ async def test_stream_query_emits_sources_then_tokens(api_client):
     with (
         patch("api.routers.query._make_embedder") as mock_embedder_factory,
         patch("api.routers.query._make_generator") as mock_generator_factory,
-        patch("api.routers.query.vector_search", new_callable=AsyncMock, return_value=[chunk]),
-        patch("api.routers.query._ensure_bm25_index", new_callable=AsyncMock),
-        patch("api.routers.query.bm25_search", new_callable=AsyncMock, return_value=[]),
+        patch("api.routers.query.prepare_query_context", new_callable=AsyncMock, return_value=PreparedQueryContext(
+            prompt="prompt",
+            top_chunks=[chunk],
+            retrieval_trace={"mode": "hybrid"},
+        )),
     ):
         mock_embedder = AsyncMock()
         mock_embedder.embed = AsyncMock(return_value=[[0.0] * 1536])
@@ -144,9 +172,11 @@ async def test_stream_query_emits_error_event_on_generator_failure(api_client):
     with (
         patch("api.routers.query._make_embedder") as mock_embedder_factory,
         patch("api.routers.query._make_generator") as mock_generator_factory,
-        patch("api.routers.query.vector_search", new_callable=AsyncMock, return_value=[chunk]),
-        patch("api.routers.query._ensure_bm25_index", new_callable=AsyncMock),
-        patch("api.routers.query.bm25_search", new_callable=AsyncMock, return_value=[]),
+        patch("api.routers.query.prepare_query_context", new_callable=AsyncMock, return_value=PreparedQueryContext(
+            prompt="prompt",
+            top_chunks=[chunk],
+            retrieval_trace={"mode": "hybrid"},
+        )),
     ):
         mock_embedder = AsyncMock()
         mock_embedder.embed = AsyncMock(return_value=[[0.0] * 1536])

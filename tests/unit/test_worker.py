@@ -45,6 +45,8 @@ async def test_ingest_document_returns_document_id_and_status():
     with (
         patch("ragcore.ingestion.worker.AsyncSessionLocal", mock_session_factory),
         patch("ragcore.ingestion.worker.make_embedder") as mock_make_embedder,
+        patch("ragcore.ingestion.worker.invalidate_bm25_index", new=AsyncMock()),
+        patch("ragcore.ingestion.worker.invalidate_project_query_cache", new=AsyncMock()),
         patch("ragcore.ingestion.worker.run_ingestion", new_callable=AsyncMock, return_value=mock_doc),
     ):
         mock_make_embedder.return_value = MagicMock()
@@ -78,6 +80,8 @@ async def test_ingest_document_passes_metadata_to_pipeline():
     with (
         patch("ragcore.ingestion.worker.AsyncSessionLocal", mock_session_factory),
         patch("ragcore.ingestion.worker.make_embedder", return_value=MagicMock()),
+        patch("ragcore.ingestion.worker.invalidate_bm25_index", new=AsyncMock()),
+        patch("ragcore.ingestion.worker.invalidate_project_query_cache", new=AsyncMock()),
         patch("ragcore.ingestion.worker.run_ingestion", new_callable=AsyncMock, return_value=mock_doc) as mock_run,
     ):
         await ingest_document({}, str(project_id), file_path, metadata)

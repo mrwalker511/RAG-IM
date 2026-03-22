@@ -44,6 +44,9 @@ async def test_run_ingestion_updates_pending_document_from_metadata(tmp_path):
     with (
         patch("ragcore.ingestion.pipeline._get_parser", return_value=parser),
         patch("ragcore.ingestion.pipeline.chunk_texts", return_value=[chunk_result]),
+        patch("ragcore.ingestion.pipeline.purge_document_graph", new=AsyncMock()),
+        patch("ragcore.ingestion.pipeline.extract_graph_from_chunks", return_value=MagicMock(entities=[], relations=[])),
+        patch("ragcore.ingestion.pipeline.upsert_document_graph", new=AsyncMock(return_value={"entities": 0, "relations": 0})),
     ):
         result = await run_ingestion(
             project_id=project_id,

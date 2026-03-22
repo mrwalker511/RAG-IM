@@ -4,10 +4,11 @@ import uuid
 from collections import defaultdict
 from dataclasses import dataclass
 
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
-from ragcore.db.models import Chunk, Document, DocumentEntity, DocumentRelation, Entity, Relation
+from ragcore.db.models import Chunk, Document, DocumentEntity, Entity, Relation
 from ragcore.graph.extraction import normalize_entity_name
 from ragcore.retrieval.vector_search import ChunkResult
 
@@ -153,11 +154,15 @@ async def global_graph_search(
         return GraphSearchResult(chunks=[], entities=[], relations=[])
 
     entity_ids = [entity.id for entity, _ in matched_entities]
+    entity_scores = {entity.id: score for entity, score in matched_entities}
+    source_entity_alias = aliased(Entity)
+    target_entity_alias = aliased(Entity)
     relation_rows = (
         await session.execute(
-            select(Relation, Entity, Entity)
-            .join(Entity, Relation.source_entity_id == Entity.id)
-            .join(Entity, Relation.target_entity_id == Entity.id)
+            select(Relation, source_entity_alias, target_entity_alias)
+            .join(source_entity_alias, Relation.source_entity_id == source_entity_alias.id)
+            .join(target_entity_alias, Relation.target_entity_id == target_entity_alias.id)
+            .where(Relation.project_id == project_id)
         )
     ).all()
 
@@ -170,9 +175,9 @@ async def global_graph_search(
             continue
         score = float(relation.weight)
         if relation.source_entity_id in entity_ids:
-            score += next(value for entity, value in matched_entities if entity.id == relation.source_entity_id)
+            score += entity_scores[relation.source_entity_id]
         if relation.target_entity_id in entity_ids:
-            score += next(value for entity, value in matched_entities if entity.id == relation.target_entity_id)
+            score += entity_scores[relation.target_entity_id]
         label = f"{source_entity.name} {relation.relation_type} {target_entity.name}"
         content = label
         if relation.description:

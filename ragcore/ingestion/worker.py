@@ -10,6 +10,8 @@ from ragcore.db.models import Document
 from ragcore.db.session import AsyncSessionLocal
 from ragcore.ingestion.pipeline import run_ingestion
 from ragcore.providers import make_embedder
+from ragcore.query.pipeline import invalidate_project_query_cache
+from ragcore.retrieval.bm25_search import invalidate_bm25_index
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +35,9 @@ async def ingest_document(
                 embedder=embedder,
                 metadata=metadata,
             )
+            await invalidate_bm25_index(uuid.UUID(project_id), session)
             await session.commit()
+            await invalidate_project_query_cache(uuid.UUID(project_id))
             return {"document_id": str(doc.id), "status": doc.status}
         except Exception:
             logger.exception("ingest_document failed for project %s file %s", project_id, file)

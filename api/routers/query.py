@@ -1,5 +1,6 @@
 import json
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -10,7 +11,7 @@ from api.dependencies import get_db_session
 from ragcore.config import settings
 from ragcore.projects.service import get_project
 from ragcore.providers import make_embedder, make_generator
-from ragcore.query.pipeline import QueryResult, run_query
+from ragcore.query.pipeline import QueryResult, prepare_query_context, run_query
 from ragcore.retrieval.reranker import CrossEncoderReranker
 
 router = APIRouter(prefix="/projects/{project_id}/query", tags=["query"])
@@ -24,12 +25,21 @@ def _make_generator():
     return make_generator()
 
 
+def _source_to_response(source) -> "SourceResponse":
+    data = dict(source.__dict__)
+    data["chunk_id"] = str(data["chunk_id"])
+    return SourceResponse(**data)
+
+
 class QueryRequest(BaseModel):
     query: str
     top_k: int | None = None
     filters: dict | None = None
     debug: bool = False
     rerank: bool = True
+    mode: str = "hybrid"
+    include_context: bool = False
+    include_eval: bool = False
 
 
 class SourceResponse(BaseModel):
@@ -37,6 +47,8 @@ class SourceResponse(BaseModel):
     filename: str
     chunk_index: int
     score: float
+    source_kind: str | None = None
+    source_label: str | None = None
 
 
 class QueryResponse(BaseModel):
@@ -44,6 +56,8 @@ class QueryResponse(BaseModel):
     sources: list[SourceResponse]
     latency_ms: int
     tokens_used: int
+    retrieval: dict[str, Any] | None = None
+    eval: dict[str, Any] | None = None
 
 
 @router.post("", response_model=QueryResponse)
@@ -70,13 +84,16 @@ async def query_project(
         reranker=reranker,
         filter_dict=body.filters,
         debug=body.debug,
+        mode=body.mode,
     )
 
     return QueryResponse(
         answer=result.answer,
-        sources=[SourceResponse(**s.__dict__) for s in result.sources],
+        sources=[_source_to_response(s) for s in result.sources],
         latency_ms=result.latency_ms,
         tokens_used=result.tokens_used,
+        retrieval=result.retrieval_trace if body.debug or body.include_context else None,
+        eval=result.eval_payload if body.include_eval else None,
     )
 
 
@@ -85,6 +102,8 @@ async def stream_query(
     project_id: uuid.UUID,
     q: str,
     rerank: bool = False,
+    mode: str = "hybrid",
+    include_context: bool = False,
     session: AsyncSession = Depends(get_db_session),
 ):
     project = await get_project(project_id, session)
@@ -95,43 +114,32 @@ async def stream_query(
     generator = _make_generator()
     reranker = CrossEncoderReranker() if rerank else None
 
-    # Run retrieval/reranking synchronously first so we can emit sources before tokens
-    from ragcore.query.pipeline import _ensure_bm25_index, SourceAttribution
-    from ragcore.retrieval.bm25_search import bm25_search
-    from ragcore.retrieval.hybrid import reciprocal_rank_fusion
-    from ragcore.retrieval.vector_search import vector_search
-    from ragcore.generation.prompt_builder import build_prompt
-
-    k = settings.DEFAULT_TOP_K
-    rerank_n = settings.RERANK_TOP_N
-
-    query_vectors = await embedder.embed([q])
-    query_vector = query_vectors[0]
-
-    vector_results = await vector_search(
-        project_id=project_id, query_vector=query_vector, top_k=rerank_n, session=session
+    prepared = await prepare_query_context(
+        project_id=project_id,
+        query_text=q,
+        session=session,
+        embedder=embedder,
+        top_k=settings.DEFAULT_TOP_K,
+        reranker=reranker,
+        mode=mode,
     )
-    await _ensure_bm25_index(project_id, session)
-    bm25_results = await bm25_search(
-        project_id=project_id, query_tokens=q.lower().split(), top_k=rerank_n, session=session
-    )
-
-    from ragcore.retrieval.vector_search import ChunkResult
-    fused: list[ChunkResult] = reciprocal_rank_fusion(vector_results, bm25_results)[:rerank_n]
-    if reranker and fused:
-        fused = reranker.rerank(q, fused)
-    top_chunks = fused[:k]
-
     sources = [
-        {"chunk_id": str(c.chunk_id), "filename": c.filename, "chunk_index": c.chunk_index, "score": c.score}
-        for c in top_chunks
+        {
+            "chunk_id": str(chunk.chunk_id),
+            "filename": chunk.filename,
+            "chunk_index": chunk.chunk_index,
+            "score": chunk.score,
+            "source_kind": chunk.source_kind,
+            "source_label": chunk.source_label,
+        }
+        for chunk in prepared.top_chunks
     ]
-    prompt = build_prompt(q, top_chunks)
-    token_gen = await generator.generate(prompt, stream=True)
+    token_gen = await generator.generate(prepared.prompt, stream=True)
 
     async def event_stream():
-        # First event: sources metadata
         yield f"event: sources\ndata: {json.dumps(sources)}\n\n"
+        if include_context:
+            yield f"event: retrieval\ndata: {json.dumps(prepared.retrieval_trace)}\n\n"
         # Subsequent events: token chunks
         try:
             async for token in token_gen:

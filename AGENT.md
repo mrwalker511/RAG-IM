@@ -10,7 +10,8 @@ FastAPI + PostgreSQL/pgvector + Redis + ARQ. Multi-project, async-first, project
 | `api/middleware.py` | Auth and rate limiting |
 | `ragcore/bootstrap.py` | Bootstrap project and key seeding |
 | `ragcore/config.py` | All settings |
-| `ragcore/query/pipeline.py` | Query flow and Redis cache |
+| `ragcore/query/pipeline.py` | Query flow, retrieval modes, cache, and observability |
+| `ragcore/index_maintenance.py` | Derived-state cleanup after document deletion |
 | `tests/conftest.py` | Test DB fixtures and auth patching |
 
 ## Critical Rules
@@ -19,8 +20,9 @@ FastAPI + PostgreSQL/pgvector + Redis + ARQ. Multi-project, async-first, project
 2. `BOOTSTRAP_API_KEY` is special; `/projects` create/list is bootstrap-only.
 3. Project-scoped keys must never cross project boundaries.
 4. Cache and rate-limit Redis failures should not take the API down.
-5. New behavior ships with tests in the same change.
-6. Update `STATUS.md` at the end of a work session.
+5. Document ingest/delete must keep graph, BM25, and query-cache state coherent.
+6. New behavior ships with tests in the same change.
+7. Update `STATUS.md` at the end of a work session.
 
 ## Validation
 

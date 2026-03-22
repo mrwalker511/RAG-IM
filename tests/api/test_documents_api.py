@@ -1,4 +1,4 @@
-"""Tests for document upload, status, delete, and BM25 invalidation."""
+"""Tests for document upload, status, delete, and index maintenance."""
 
 import uuid
 from io import BytesIO
@@ -120,7 +120,7 @@ async def test_get_document_status_not_found(api_client):
 
 
 @pytest.mark.asyncio
-async def test_delete_document_invalidates_bm25(api_client):
+async def test_delete_document_runs_full_index_maintenance(api_client):
     proj_resp = await api_client.post("/projects", json={"name": "doc-delete-project"})
     project_id = proj_resp.json()["id"]
 
@@ -136,12 +136,12 @@ async def test_delete_document_invalidates_bm25(api_client):
         )
     document_id = upload_resp.json()["document_id"]
 
-    with patch("api.routers.documents.invalidate_bm25_index", new_callable=AsyncMock) as mock_invalidate:
+    with patch("api.routers.documents.maintain_project_indexes_for_document_delete", new_callable=AsyncMock) as mock_maintain:
         del_resp = await api_client.delete(
             f"/projects/{project_id}/documents/{document_id}"
         )
         assert del_resp.status_code == 204
-        mock_invalidate.assert_awaited_once()
+        mock_maintain.assert_awaited_once()
 
 
 @pytest.mark.asyncio

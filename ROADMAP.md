@@ -1,90 +1,39 @@
 # Roadmap
 
-What's done, what's next, and what's deliberately deferred.
-
----
-
 ## Done
 
-### Foundation (Phase 1–3)
+- Async ingestion for PDF, DOCX, Markdown, and text
+- Hybrid retrieval with pgvector + BM25 + optional reranking
+- Streaming and non-streaming query APIs
+- Redis query cache
+- Redis-backed shared rate limiting
+- Bootstrap admin key plus project-scoped key enforcement
+- Docker upload handoff via shared temp storage
+- API, CLI, CI, Alembic, and smoke-tested local stack
+- Integration coverage for ingest → query → cache
 
-- Project scaffold, DB models, Alembic migrations, Docker Compose
-- Ingestion pipeline: parsers (PDF, DOCX, Markdown, text), chunker, deduplication, embeddings, ARQ worker
-- Retrieval: vector search (pgvector), BM25, hybrid RRF, CrossEncoder reranker
+## Next
 
-### API & CLI (Phase 4–5)
+### 1. Observability
 
-- FastAPI routers: projects, documents, query, API keys
-- API key auth middleware
-- Typer CLI: project CRUD, ingest, query (streaming + non-streaming)
-- Streaming SSE responses with source attribution
+- Emit warning-level logs or metrics for Redis cache failures
+- Add structured logs around ingestion, cache hits, and first-query warmup
 
-### Hardening (Phase 6)
+### 2. Dev Reliability
 
-- Local fallback embedder (SentenceTransformers)
-- LiteLLM multi-provider LLM support
-- GitHub Actions CI workflow
-- 10-point audit fixes: migrations, tokens, providers, BM25 staleness, streaming, event loop, temp file, DOCX, CLI status, API keys
+- Investigate intermittent host-side `localhost:8000` failures
+- Add a one-command smoke helper script instead of relying on copied shell snippets
 
-### Infrastructure (Current)
+### 3. Auth / Ops
 
-- Configurable CORS origins
-- Per-API-key sliding-window rate limiting (in-process)
-- SQLAlchemy + Redis connection pool sizing
-- Redis query result cache with TTL
-- Test suite overhaul: auth fixtures, middleware tests, Redis cache tests
-- Live Docker smoke test completed under `ragimdev`: upload → ingest → query
+- Add an explicit bootstrap-key rotation workflow
+- Decide whether project creation should remain bootstrap-only or move behind a separate admin surface
 
-### Project Scaffold
+## Deferred
 
-- `AGENT.md` auto-loaded session context
-- `STATUS.md` session handoff
-- `DECISIONS.md` architectural decisions log
-- `GUIDE.md` strict prompt standards
-- `ERRORS.md` agent accountability log
-- `.pre-commit-config.yaml` code quality gates
-- `.env.example` updated for the current local dev stack
-
----
-
-## Up Next (prioritised)
-
-### 1. Automated Integration Tests
-
-Manual ingest → query flow is now verified against the live `ragimdev` stack. Next step is to automate it.
-
-- Upload a document, wait for worker completion, run a query, assert answer + sources
-- Verify cache hit on second identical query (latency drops, Redis has the key)
-- Target: `tests/integration/`
-
-### 2. CORS Hardening
-
-- Set `CORS_ORIGINS` to an explicit origin list in staging/production env
-- Add a test verifying CORS headers on OPTIONS preflight
-
-### 3. Observability Improvements
-
-- Structured JSON log output from ingestion and query pipelines (stdlib `logging` + JSON formatter)
-- Emit a warning-level log event when Redis cache read/write fails (currently silent)
-
-### 4. Dev Ergonomics
-
-- Investigate intermittent host-side `localhost:8000` failures seen from the shell even when Docker health checks pass
-- Add a small smoke-test helper script so the verified Docker-internal path is one command
-
----
-
-## Deferred (deliberate)
-
-| Feature | Reason deferred |
+| Item | Reason |
 |---|---|
-| Redis-backed rate limiting | Only needed for multi-worker deployment; current in-process approach is sufficient |
-| JWT / OAuth authentication | API key auth covers current use case; JWT adds complexity without clear benefit yet |
-| Per-project chunk size config | Config JSONB column exists on `projects` table but is not yet wired to the chunker |
-| Async BM25 staleness invalidation | Currently lazy (rebuilt before next query); an event-driven rebuild (on ingest/delete) would reduce first-query latency |
-| `unstructured` parser support | Heavy native deps; add only if a required format cannot be handled by current parsers |
-| Multi-tenant auth (org-level keys) | Current model: one key per project. Org-level keys would require a new DB table and middleware change |
-
----
-
-*Update this file when a feature moves from Up Next → Done, or when a new priority is identified.*
+| JWT / OAuth | API keys are enough for the current deployment model |
+| Per-project chunk config wiring | Config column exists, but chunker still uses global defaults |
+| Event-driven BM25 rebuilds | Current lazy rebuild is simpler and acceptable |
+| `unstructured` parser support | Current parser set covers the target formats without heavy native deps |

@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.middleware import api_key_middleware, rate_limit_middleware
 from api.routers import api_keys, documents, projects, query
+from ragcore.bootstrap import ensure_bootstrap_project_api_key
 from ragcore.config import settings
 from ragcore.db.redis import close_redis_pool
 from ragcore.db.session import engine
@@ -31,6 +32,7 @@ def _validate_embedding_dim() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _validate_embedding_dim()
+    await ensure_bootstrap_project_api_key()
     yield
     await engine.dispose()
     await close_redis_pool()

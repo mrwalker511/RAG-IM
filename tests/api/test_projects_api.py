@@ -1,6 +1,5 @@
 import uuid
 
-import pytest
 from httpx import ASGITransport, AsyncClient
 
 
@@ -12,6 +11,24 @@ async def test_health():
         resp = await client.get("/health")
     assert resp.status_code == 200
     assert resp.json()["status"] == "ok"
+
+
+async def test_cors_preflight_returns_expected_headers():
+    from api.main import create_app
+
+    app = create_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.options(
+            "/projects",
+            headers={
+                "Origin": "http://frontend.example",
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+
+    assert resp.status_code == 200
+    assert resp.headers["access-control-allow-origin"] == "*"
+    assert "POST" in resp.headers["access-control-allow-methods"]
 
 
 async def test_create_and_list_project(api_client):
@@ -35,3 +52,15 @@ async def test_create_duplicate_project_returns_409(api_client):
 async def test_delete_nonexistent_project_returns_404(api_client):
     resp = await api_client.delete(f"/projects/{uuid.uuid4()}")
     assert resp.status_code == 404
+
+
+async def test_project_scoped_key_cannot_list_all_projects(api_client):
+    project_id = (await api_client.post("/projects", json={"name": "bootstrap-only-project"})).json()["id"]
+    key_resp = await api_client.post(
+        f"/projects/{project_id}/api-keys",
+        json={"label": "scoped"},
+    )
+    scoped_key = key_resp.json()["key"]
+
+    resp = await api_client.get("/projects", headers={"X-API-Key": scoped_key})
+    assert resp.status_code == 403

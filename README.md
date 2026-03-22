@@ -1,159 +1,93 @@
 # RAG Framework
 
-A production-grade, reusable Retrieval-Augmented Generation (RAG) framework. Each project gets its own isolated namespace within a shared PostgreSQL + pgvector database.
+Reusable FastAPI + PostgreSQL/pgvector + Redis RAG service with async document ingestion, hybrid retrieval, source attribution, and project isolation.
 
-## Features
+## What Ships
 
-- **Document ingestion**: PDF, DOCX, Markdown, plain text
-- **Pluggable chunking**: fixed-size and recursive strategies with token-limit guard
-- **Pluggable embedders**: OpenAI (default) or SentenceTransformers (local, no API key)
-- **Hybrid search**: pgvector cosine similarity + BM25, fused via Reciprocal Rank Fusion
-- **CrossEncoder re-ranking** of top candidates
-- **LLM answer synthesis** with source attribution (document, chunk index)
-- **Streaming responses** via SSE
-- **Async ingestion** via ARQ + Redis — uploads never block HTTP requests
-- **SHA-256 deduplication** — unchanged documents are skipped on re-ingest
-- **Per-project isolation** — every query is scoped by `project_id`
-- **API key auth** per project
-- **Alembic migrations**, **Docker Compose**, **GitHub Actions CI**
+- Async document ingestion for PDF, DOCX, Markdown, and text
+- pgvector + BM25 hybrid retrieval with optional reranking
+- Streaming and non-streaming query endpoints
+- Redis-backed query cache
+- Redis-backed shared rate limiting
+- Project-scoped API keys
+- Env-driven bootstrap admin key for first-run project management
+- Docker Compose, Alembic, CI, CLI, and test coverage
 
-## Stack
+## Auth Model
 
-| Layer | Choice |
-|-------|--------|
-| Language | Python 3.11+ |
-| API | FastAPI |
-| Database | PostgreSQL 16 + pgvector |
-| ORM | SQLAlchemy 2.x (async) + asyncpg |
-| Migrations | Alembic |
-| Task queue | ARQ + Redis |
-| Embeddings | OpenAI / SentenceTransformers |
-| LLM | OpenAI (default) + LiteLLM |
-| Parsing | pypdf, python-docx, markdown-it-py |
-| CLI | Typer + Rich |
-
-## Current Local Dev Stack
-
-- Compose project name: `ragimdev`
-- Embeddings: `sentence_transformer` with `all-MiniLM-L6-v2` (`384` dims)
-- LLM: `litellm` with `mistral/mistral-small-latest`
-- API + worker upload handoff: shared temp volume via `UPLOAD_TMP_DIR=/shared-tmp`
-- Health check: `http://localhost:8000/health`
+- `BOOTSTRAP_API_KEY` is the admin key used to create and list projects.
+- Project-scoped keys can only access their own project routes.
+- Bootstrap access is meant for provisioning and operations, not normal app traffic.
 
 ## Quickstart
 
 ```bash
-# 1. Clone and configure
 cp .env.example .env
-# Edit .env for your provider credentials
-# Current local dev example in .env.example uses LiteLLM + Mistral and local sentence-transformer embeddings
+# Set:
+# - BOOTSTRAP_API_KEY
+# - provider credentials
+# - explicit CORS origins for your frontend
 
-# 2. Start services
 docker compose -p ragimdev up -d --build
-
-# 3. Run migrations
 docker compose -p ragimdev exec -T api alembic upgrade head
-
-# 4. Verify health
 curl -sS http://localhost:8000/health
-# {"status":"ok"}
-
-# 5. Install CLI locally (optional)
-pip install -r requirements.txt
 ```
 
-Compose overrides `DATABASE_URL`, `REDIS_URL`, and `UPLOAD_TMP_DIR` for the `api` and `worker` containers so they talk to the internal `postgres` and `redis` services and share upload temp files. On this machine, Docker-internal validation has been more reliable than host-side DB access.
+For the shortest end-to-end smoke test, use [testing.md](/home/matticus/code/RAG-IM/RAG-IM/testing.md).
 
-## Environment Variables
+## Local Dev Defaults
 
-The table below lists code defaults from `ragcore/config.py`. See `.env.example` for the current local development example values.
+- Compose project: `ragimdev`
+- Embeddings: `sentence_transformer` / `all-MiniLM-L6-v2` / `384` dims
+- LLM: `litellm` / `mistral/mistral-small-latest`
+- Upload handoff: shared temp volume via `UPLOAD_TMP_DIR=/shared-tmp`
+- Health: `http://localhost:8000/health`
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DATABASE_URL` | `postgresql+asyncpg://rag:rag@localhost:5433/rag_db` | Async PostgreSQL URL |
-| `REDIS_URL` | `redis://localhost:6379` | Redis for ARQ task queue |
-| `EMBEDDING_PROVIDER` | `openai` | `openai` or `sentence_transformer` |
-| `OPENAI_API_KEY` | — | Required for OpenAI embeddings and LLM |
-| `EMBEDDING_MODEL` | `text-embedding-3-small` | Embedding model name |
-| `EMBEDDING_DIM` | `1536` | Embedding vector dimension |
+## Important Settings
+
+| Variable | Default | Notes |
+|---|---|---|
+| `DATABASE_URL` | `postgresql+asyncpg://rag:rag@localhost:5432/rag_db` | Async PostgreSQL URL |
+| `REDIS_URL` | `redis://localhost:6379` | Queue, cache, and rate limiting |
+| `BOOTSTRAP_PROJECT_NAME` | empty | Project auto-created for the bootstrap key |
+| `BOOTSTRAP_API_KEY` | empty | Required for first-run project management |
+| `BOOTSTRAP_API_KEY_LABEL` | `bootstrap` | Label stored with the seeded key |
+| `EMBEDDING_PROVIDER` | `sentence_transformer` | `openai` or `sentence_transformer` |
+| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Must match `EMBEDDING_DIM` |
+| `EMBEDDING_DIM` | `384` | Guarded at startup for known models |
 | `LLM_PROVIDER` | `openai` | `openai` or `litellm` |
-| `LLM_MODEL` | `gpt-4o-mini` | LLM model name |
-| `DEFAULT_CHUNK_SIZE` | `512` | Default chunk size in tokens |
-| `DEFAULT_CHUNK_OVERLAP` | `64` | Default chunk overlap in tokens |
-| `DEFAULT_TOP_K` | `5` | Default retrieval top-k |
-| `RERANK_TOP_N` | `20` | Candidates sent to CrossEncoder |
-| `BM25_STALE_AFTER_MINUTES` | `60` | BM25 index rebuild threshold |
-| `API_HOST` | `0.0.0.0` | API bind host |
-| `API_PORT` | `8000` | API bind port |
-| `UPLOAD_TMP_DIR` | `/tmp` | Temp directory used before the worker ingests uploads |
-| `CORS_ORIGINS` | `*` | Comma-separated allowed origins; restrict in production |
-| `RATE_LIMIT_PER_MINUTE` | `60` | Per-API-key sliding-window rate limit; `0` = disabled |
-| `DB_POOL_SIZE` | `10` | SQLAlchemy connection pool size |
-| `DB_MAX_OVERFLOW` | `20` | Max connections above pool size |
-| `DB_POOL_TIMEOUT` | `30` | Seconds to wait for a DB connection |
-| `REDIS_MAX_CONNECTIONS` | `20` | Redis connection pool cap |
-| `QUERY_CACHE_TTL` | `300` | Query result cache TTL in seconds; `0` = disabled |
+| `LLM_MODEL` | `gpt-4o-mini` | Generator model |
+| `UPLOAD_TMP_DIR` | `/tmp` | Compose overrides to `/shared-tmp` |
+| `CORS_ORIGINS` | `*` | Set explicit origins outside dev |
+| `RATE_LIMIT_PER_MINUTE` | `60` | Shared Redis-backed sliding window |
+| `QUERY_CACHE_TTL` | `300` | `0` disables result caching |
 
-## CLI Usage
+## API Surface
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/projects` | Create project, bootstrap key only |
+| `GET` | `/projects` | List projects, bootstrap key only |
+| `GET` | `/projects/{id}` | Get project, matching project key or bootstrap |
+| `DELETE` | `/projects/{id}` | Delete project, matching project key or bootstrap |
+| `POST` | `/projects/{id}/api-keys` | Create project key |
+| `GET` | `/projects/{id}/api-keys` | List project keys |
+| `POST` | `/projects/{id}/documents` | Upload document |
+| `GET` | `/projects/{id}/documents/{doc_id}/status` | Check ingestion status |
+| `POST` | `/projects/{id}/query` | Query |
+| `GET` | `/projects/{id}/query/stream?q=...` | SSE query |
+
+OpenAPI docs are at `http://localhost:8000/docs`.
+
+## CLI
 
 ```bash
-# Set API key if auth is enabled
-export RAG_API_KEY=your-key
 export RAG_API_URL=http://localhost:8000
+export RAG_API_KEY=<bootstrap-or-project-key>
 
-# Projects
-rag project create "my-project"
-rag project list
-rag project delete "my-project"
-
-# Ingest
-rag ingest run my-project ./docs/
-rag ingest status <job_id>
-
-# Query
-rag query my-project "Summarize the key points in these documents."
-rag query my-project "What does section 3 cover?" --top-k 10 --stream
-```
-
-Run the CLI directly:
-```bash
-python -m cli.main --help
-```
-
-## API
-
-OpenAPI docs available at `http://localhost:8000/docs` after starting the server.
-
-Key endpoints:
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/projects` | Create project |
-| `GET` | `/projects` | List projects |
-| `DELETE` | `/projects/{id}` | Delete project |
-| `POST` | `/projects/{id}/documents` | Upload document (async) |
-| `GET` | `/projects/{id}/documents/{doc_id}/status` | Ingestion status |
-| `POST` | `/projects/{id}/query` | Query (non-streaming) |
-| `GET` | `/projects/{id}/query/stream?q=...` | Query (SSE streaming) |
-
-## Architecture
-
-```
-ragcore/
-├── config.py          # Pydantic Settings — all env vars
-├── db/
-│   ├── models.py      # ORM: Project, Document, Chunk, BM25Index, QueryLog, APIKey
-│   └── session.py     # Async engine + session factory
-├── projects/          # Project CRUD service + schemas
-├── ingestion/         # parse → dedup → chunk → embed → store
-│   ├── parsers/       # BaseParser + PDF/DOCX/Markdown/Text
-│   ├── chunker.py     # Fixed + recursive, token-limit guard
-│   └── worker.py      # ARQ task definition
-├── embeddings/        # BaseEmbedder + OpenAI + SentenceTransformer
-├── retrieval/         # vector_search, bm25_search, hybrid RRF, reranker
-├── generation/        # BaseLLMGenerator + OpenAI + LiteLLM
-├── query/             # End-to-end query pipeline (includes Redis result cache)
-└── observability/     # Async query event logger
+python -m cli.main project list
+python -m cli.main ingest run <project-name> ./docs
+python -m cli.main query <project-name> "Summarize the documents"
 ```
 
 ## Development
@@ -161,24 +95,17 @@ ragcore/
 ```bash
 pip install -r requirements-dev.txt
 
-# Lint
 ruff check .
-
-# Type check
 mypy ragcore api --ignore-missing-imports
-
-# Test (unit only, no DB required)
 pytest tests/unit -v
-
-# Test with coverage
-pytest tests/unit --cov=ragcore --cov=api --cov-report=term-missing
 ```
 
-## Adding a New Embedding Provider
+DB-backed suites need a reachable `TEST_DATABASE_URL`. In this workspace, Docker-internal smoke validation has been more reliable than host-side DB access.
 
-1. Create `ragcore/embeddings/my_embedder.py`, subclass `BaseEmbedder`
-2. Implement `embed()` and `dimension`
-3. Add the provider name to `EMBEDDING_PROVIDER` choices in `config.py`
-4. Wire it in the factory used by the query pipeline
+## Deployment Notes
 
-Same pattern applies for LLM providers via `BaseLLMGenerator`.
+- Set a unique `BOOTSTRAP_API_KEY` before first startup.
+- Rotate away from the bootstrap key for normal traffic by creating project-scoped keys.
+- Set explicit `CORS_ORIGINS`.
+- Run API and worker together so uploads can hand off through the shared temp directory.
+- Expect slower first-query latency after restart when local transformer models warm up.

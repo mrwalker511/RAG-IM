@@ -16,21 +16,23 @@ FastAPI + PostgreSQL/pgvector + Redis + ARQ. Multi-project, per-project-isolated
 | `api/middleware.py` | Auth (`api_key_middleware`) + rate limiting (`rate_limit_middleware`) |
 | `ragcore/db/session.py` | SQLAlchemy engine (pool settings) |
 | `ragcore/db/redis.py` | Redis client + connection pool |
+| `ragcore/bootstrap.py` | Bootstrap project + admin key seeding |
 | `tests/conftest.py` | `seeded_api_key`, `api_client` (patches middleware, sends X-API-Key) |
 
 ## Critical Rules
 
 1. **Middleware bypasses DI.** Patch `api.middleware.AsyncSessionLocal` in tests — `app.dependency_overrides` doesn't reach it.
-2. **Redis errors are silent.** Cache helpers catch all exceptions. Redis outage must never break queries.
-3. **Tests ship with implementation.** New functions get tests in the same commit.
-4. **Read before Edit.** Always `Read` a file before `Edit`, even if read in a prior session.
-5. **No force push.** Never push to `main`. Never `--force` without explicit instruction.
+2. **Bootstrap key is special.** `/projects` create/list requires the bootstrap key; project keys are project-scoped.
+3. **Redis cache errors are silent.** Cache helpers catch all exceptions. Redis outage must never break queries.
+4. **Tests ship with implementation.** New functions get tests in the same commit.
+5. **Read before Edit.** Always `Read` a file before `Edit`, even if read in a prior session.
+6. **No force push.** Never push to `main`. Never `--force` without explicit instruction.
 
 ## Tests
 
 ```bash
 pytest tests/unit/ -v                                                      # unit only (no services)
-pytest tests/ -v                                                           # all (needs Postgres + Redis)
+TEST_DATABASE_URL=... pytest tests/api tests/integration -v                # DB-backed suites
 pytest tests/unit/ --cov=ragcore --cov=api --cov-report=term-missing
 ```
 

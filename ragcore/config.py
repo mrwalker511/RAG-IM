@@ -51,5 +51,10 @@ class Settings(BaseSettings):
     # Query result cache TTL in seconds (0 = disabled)
     QUERY_CACHE_TTL: int = 300
 
+    # Bootstrap auth/project seeding for fresh deployments
+    BOOTSTRAP_PROJECT_NAME: str = ""
+    BOOTSTRAP_API_KEY: str = ""
+    BOOTSTRAP_API_KEY_LABEL: str = "bootstrap"
+
 
 settings = Settings()

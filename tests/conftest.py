@@ -1,7 +1,7 @@
 import hashlib
 import os
 from collections.abc import AsyncGenerator
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
@@ -107,7 +107,11 @@ async def api_client(test_engine, seeded_api_key) -> AsyncGenerator[AsyncClient,
 
     # Patch the middleware's session factory so auth lookups hit the test DB,
     # not the production DATABASE_URL.
-    with patch("api.middleware.AsyncSessionLocal", factory):
+    with (
+        patch("api.main.ensure_bootstrap_project_api_key", new=AsyncMock()),
+        patch("api.middleware.AsyncSessionLocal", factory),
+        patch("api.middleware._is_bootstrap_key", side_effect=lambda raw_key: raw_key == seeded_api_key),
+    ):
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",

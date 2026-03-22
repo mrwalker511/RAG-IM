@@ -153,3 +153,21 @@ async def test_delete_document_not_found(api_client):
         f"/projects/{project_id}/documents/{uuid.uuid4()}"
     )
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_project_scoped_api_key_cannot_access_other_project(api_client):
+    project_a = (await api_client.post("/projects", json={"name": "scoped-doc-project-a"})).json()["id"]
+    project_b = (await api_client.post("/projects", json={"name": "scoped-doc-project-b"})).json()["id"]
+
+    key_resp = await api_client.post(
+        f"/projects/{project_a}/api-keys",
+        json={"label": "project-a-only"},
+    )
+    project_a_key = key_resp.json()["key"]
+
+    resp = await api_client.get(
+        f"/projects/{project_b}/documents",
+        headers={"X-API-Key": project_a_key},
+    )
+    assert resp.status_code == 403

@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
+from ragcore.config import settings
 from sqlalchemy import (
     BigInteger,
     DateTime,
@@ -56,7 +57,7 @@ class Chunk(Base):
     document_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
     project_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    embedding: Mapped[list[float]] = mapped_column(Vector(1536), nullable=True)
+    embedding: Mapped[list[float]] = mapped_column(Vector(settings.EMBEDDING_DIM), nullable=True)
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
     meta: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False, default=dict)
 

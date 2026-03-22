@@ -36,7 +36,7 @@ cp .env.example .env             # if available, otherwise create manually
 Minimum `.env` for local testing:
 
 ```ini
-DATABASE_URL=postgresql+asyncpg://rag:rag@localhost:5432/rag_db
+DATABASE_URL=postgresql+asyncpg://rag:rag@localhost:5433/rag_db
 REDIS_URL=redis://localhost:6379
 OPENAI_API_KEY=sk-...
 EMBEDDING_PROVIDER=openai        # or sentence_transformer (no key needed)
@@ -105,7 +105,7 @@ alembic upgrade head
 Verify all tables exist:
 
 ```bash
-psql postgresql://rag:rag@localhost:5432/rag_db -c "\dt"
+psql postgresql://rag:rag@localhost:5433/rag_db -c "\dt"
 ```
 
 Expected tables: `projects`, `documents`, `chunks`, `bm25_indexes`,
@@ -120,7 +120,7 @@ These tests spin up the FastAPI app in-process with a dedicated test database.
 ### 4.1 Create the test database
 
 ```bash
-psql postgresql://rag:rag@localhost:5432 -c "CREATE DATABASE test_rag;"
+psql postgresql://rag:rag@localhost:5433/postgres -c "CREATE DATABASE test_rag;"
 ```
 
 ### 4.2 Run API tests
@@ -398,7 +398,7 @@ alembic downgrade base
 alembic upgrade head
 
 # Verify no errors, then check tables
-psql postgresql://rag:rag@localhost:5432/rag_db -c "\dt"
+psql postgresql://rag:rag@localhost:5433/rag_db -c "\dt"
 ```
 
 Expected tables (6):

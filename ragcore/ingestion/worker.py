@@ -2,14 +2,12 @@ import logging
 import uuid
 from pathlib import Path
 
-from arq import ArqRedis
 from arq.connections import RedisSettings
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from ragcore.config import settings
 from ragcore.db.session import AsyncSessionLocal
-from ragcore.embeddings.openai_embedder import OpenAIEmbedder
 from ragcore.ingestion.pipeline import run_ingestion
+from ragcore.providers import make_embedder
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +20,7 @@ async def ingest_document(
 ) -> dict:
     """ARQ task: ingest a single document into the vector store."""
     async with AsyncSessionLocal() as session:
-        embedder = OpenAIEmbedder()
+        embedder = make_embedder()
         doc = await run_ingestion(
             project_id=uuid.UUID(project_id),
             file_path=Path(file_path),

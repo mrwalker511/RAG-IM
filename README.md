@@ -53,7 +53,7 @@ pip install -r requirements.txt
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | `postgresql+asyncpg://rag:rag@localhost:5432/rag_db` | Async PostgreSQL URL |
+| `DATABASE_URL` | `postgresql+asyncpg://rag:rag@localhost:5433/rag_db` | Async PostgreSQL URL |
 | `REDIS_URL` | `redis://localhost:6379` | Redis for ARQ task queue |
 | `EMBEDDING_PROVIDER` | `openai` | `openai` or `sentence_transformer` |
 | `OPENAI_API_KEY` | — | Required for OpenAI embeddings and LLM |

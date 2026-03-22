@@ -13,7 +13,7 @@ from ragcore.embeddings.base import BaseEmbedder
 
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
-    "postgresql+asyncpg://rag:rag@localhost:5432/test_rag",
+    "postgresql+asyncpg://rag:rag@localhost:5433/test_rag",
 )
 
 # Raw key inserted into the test DB once per session; sent in every api_client request.

@@ -8,29 +8,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import get_db_session
 from ragcore.config import settings
-from ragcore.embeddings.base import BaseEmbedder
-from ragcore.generation.base import BaseLLMGenerator
 from ragcore.projects.service import get_project
+from ragcore.providers import make_embedder, make_generator
 from ragcore.query.pipeline import QueryResult, run_query
 from ragcore.retrieval.reranker import CrossEncoderReranker
 
 router = APIRouter(prefix="/projects/{project_id}/query", tags=["query"])
 
 
-def _make_embedder() -> BaseEmbedder:
-    if settings.EMBEDDING_PROVIDER == "sentence_transformer":
-        from ragcore.embeddings.sentence_transformer_embedder import SentenceTransformerEmbedder
-        return SentenceTransformerEmbedder(model_name=settings.EMBEDDING_MODEL)
-    from ragcore.embeddings.openai_embedder import OpenAIEmbedder
-    return OpenAIEmbedder()
+def _make_embedder():
+    return make_embedder()
 
 
-def _make_generator() -> BaseLLMGenerator:
-    if settings.LLM_PROVIDER == "litellm":
-        from ragcore.generation.litellm_generator import LiteLLMGenerator
-        return LiteLLMGenerator()
-    from ragcore.generation.openai_generator import OpenAIGenerator
-    return OpenAIGenerator()
+def _make_generator():
+    return make_generator()
 
 
 class QueryRequest(BaseModel):

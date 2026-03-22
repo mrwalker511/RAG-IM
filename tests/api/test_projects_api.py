@@ -1,4 +1,5 @@
 import uuid
+from unittest.mock import patch
 
 from httpx import ASGITransport, AsyncClient
 
@@ -11,6 +12,20 @@ async def test_health():
         resp = await client.get("/health")
     assert resp.status_code == 200
     assert resp.json()["status"] == "ok"
+
+
+async def test_root_serves_web_app_without_auth():
+    from api.main import create_app
+
+    with patch("api.main.settings.BOOTSTRAP_API_KEY", "bootstrap-test-key"):
+        app = create_app()
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/")
+
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers["content-type"]
+    assert "RAG Control Room" in resp.text
+    assert "bootstrap-test-key" in resp.text
 
 
 async def test_cors_preflight_returns_expected_headers():

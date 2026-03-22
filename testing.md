@@ -65,7 +65,7 @@ Unit tests mock all I/O and run fully offline.
 pytest tests/unit/ -v
 ```
 
-Expected output — all of the following suites should pass:
+Expected output - all of the following suites should pass:
 
 | Test file | What it covers |
 |---|---|

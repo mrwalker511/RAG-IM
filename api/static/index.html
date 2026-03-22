@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAG Control Room</title>
+  <style>
+    :root {
+      --bg: #f4efe7;
+      --bg-accent: #e6dccb;
+      --panel: rgba(255, 251, 245, 0.88);
+      --panel-strong: #fff9f0;
+      --ink: #1d2a2b;
+      --muted: #5b6768;
+      --line: rgba(29, 42, 43, 0.12);
+      --brand: #0f766e;
+      --brand-dark: #134e4a;
+      --brand-soft: rgba(15, 118, 110, 0.12);
+      --alert: #b45309;
+      --danger: #b91c1c;
+      --shadow: 0 20px 60px rgba(38, 40, 31, 0.14);
+      --radius: 22px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Avenir Next", "Segoe UI", "Trebuchet MS", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(15, 118, 110, 0.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(180, 83, 9, 0.16), transparent 24%),
+        linear-gradient(160deg, var(--bg) 0%, #efe5d4 100%);
+    }
+
+    .shell {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 28px auto 56px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 28px 30px 30px;
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background:
+        linear-gradient(140deg, rgba(255, 249, 240, 0.94), rgba(245, 237, 224, 0.92)),
+        var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -60px -90px auto;
+      width: 260px;
+      height: 260px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(15, 118, 110, 0.20), transparent 68%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--brand-dark);
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 700px;
+      font-size: clamp(2.2rem, 5vw, 4.2rem);
+      line-height: 0.98;
+      letter-spacing: -0.05em;
+    }
+
+    .hero p {
+      margin: 14px 0 0;
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 360px minmax(0, 1fr);
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 18px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .panel-body {
+      padding: 22px;
+    }
+
+    .panel h2 {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+      letter-spacing: 0.02em;
+    }
+
+    .panel p {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    label {
+      display: grid;
+      gap: 7px;
+      font-size: 0.82rem;
+      letter-spacing: 0.02em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      padding: 13px 14px;
+      border: 1px solid rgba(29, 42, 43, 0.14);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--ink);
+      font: inherit;
+      transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: rgba(15, 118, 110, 0.55);
+      box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.12);
+    }
+
+    textarea {
+      min-height: 138px;
+      resize: vertical;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 18px;
+      font: inherit;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      color: white;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+      box-shadow: 0 12px 28px rgba(15, 118, 110, 0.25);
+      transition: transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+    }
+
+    button.secondary {
+      color: var(--ink);
+      background: white;
+      border: 1px solid rgba(29, 42, 43, 0.12);
+      box-shadow: none;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: default;
+      transform: none;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      background: var(--brand-soft);
+      color: var(--brand-dark);
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .status {
+      min-height: 45px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(29, 42, 43, 0.08);
+      color: var(--muted);
+      white-space: pre-wrap;
+    }
+
+    .status.error {
+      color: var(--danger);
+      border-color: rgba(185, 28, 28, 0.18);
+      background: rgba(254, 242, 242, 0.9);
+    }
+
+    .status.warn {
+      color: var(--alert);
+      border-color: rgba(180, 83, 9, 0.18);
+      background: rgba(255, 247, 237, 0.92);
+    }
+
+    .status.ok {
+      color: var(--brand-dark);
+      border-color: rgba(15, 118, 110, 0.18);
+      background: rgba(240, 253, 250, 0.92);
+    }
+
+    .list {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .item {
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(29, 42, 43, 0.08);
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .item strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.96rem;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 0.9rem;
+      word-break: break-word;
+    }
+
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+      font-size: 0.95rem;
+      line-height: 1.55;
+    }
+
+    .answer {
+      min-height: 190px;
+      padding: 18px;
+      border-radius: 20px;
+      background: var(--panel-strong);
+      border: 1px solid rgba(29, 42, 43, 0.08);
+    }
+
+    .row-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: start;
+      margin-bottom: 14px;
+    }
+
+    .tiny {
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    @media (max-width: 980px) {
+      .layout,
+      .grid.two {
+        grid-template-columns: 1fr;
+      }
+
+      .shell {
+        width: min(100vw - 20px, 1180px);
+      }
+
+      .hero,
+      .panel-body {
+        padding: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">RAG Control Room</p>
+      <h1>Upload documents. Query them. Stay inside one page.</h1>
+      <p>
+        Use your bootstrap key to create or list projects, then upload documents and run queries
+        with either the bootstrap key or a project-scoped key.
+      </p>
+    </section>
+
+    <section class="layout">
+      <div class="stack">
+        <article class="panel">
+          <div class="panel-body">
+            <h2>Connection</h2>
+            <p>Everything defaults to the current API origin.</p>
+            <div class="grid">
+              <label>
+                API Base URL
+                <input id="apiBase" type="text">
+              </label>
+              <label>
+                API Key
+                <input id="apiKey" type="password" placeholder="bootstrap or project key">
+              </label>
+              <div class="actions">
+                <button id="listProjectsBtn" class="secondary" type="button">List Projects</button>
+                <button id="healthBtn" class="secondary" type="button">Check Health</button>
+              </div>
+              <div id="connectionStatus" class="status">Enter a key, then load projects or target a project manually.</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-body">
+            <h2>Project</h2>
+            <p>Use bootstrap access to create a project, or paste an existing project ID.</p>
+            <div class="grid">
+              <label>
+                Project Selector
+                <select id="projectSelect">
+                  <option value="">No project loaded</option>
+                </select>
+              </label>
+              <label>
+                Project ID
+                <input id="projectId" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+              </label>
+              <label>
+                New Project Name
+                <input id="projectName" type="text" placeholder="contracts-2026">
+              </label>
+              <div class="actions">
+                <button id="createProjectBtn" type="button">Create Project</button>
+                <button id="loadDocumentsBtn" class="secondary" type="button">Load Documents</button>
+              </div>
+              <div class="actions">
+                <button id="createProjectKeyBtn" class="secondary" type="button">Create Project Key</button>
+              </div>
+              <div id="projectStatus" class="status">Project state will appear here.</div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div class="stack">
+        <article class="panel">
+          <div class="panel-body">
+            <div class="row-head">
+              <div>
+                <h2>Upload</h2>
+                <p>Upload one or more files into the selected project.</p>
+              </div>
+              <div class="pill" id="activeProjectPill">No active project</div>
+            </div>
+            <div class="grid">
+              <label>
+                Files
+                <input id="fileInput" type="file" multiple>
+              </label>
+              <div class="actions">
+                <button id="uploadBtn" type="button">Upload Documents</button>
+              </div>
+              <div id="uploadStatus" class="status">No uploads yet.</div>
+              <div id="documentsList" class="list"></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-body">
+            <div class="row-head">
+              <div>
+                <h2>Query</h2>
+                <p>Ask a question against the selected project.</p>
+              </div>
+              <div class="tiny" id="queryMeta">Waiting for a project.</div>
+            </div>
+            <div class="grid">
+              <label>
+                Question
+                <textarea id="queryInput" placeholder="What are the key obligations in these documents?"></textarea>
+              </label>
+              <div class="grid two">
+                <label>
+                  Top K
+                  <input id="topK" type="number" min="1" max="20" value="5">
+                </label>
+                <label>
+                  Rerank
+                  <select id="rerank">
+                    <option value="true">Enabled</option>
+                    <option value="false">Disabled</option>
+                  </select>
+                </label>
+              </div>
+              <div class="actions">
+                <button id="queryBtn" type="button">Run Query</button>
+              </div>
+              <div id="queryStatus" class="status">No query has been sent.</div>
+              <div class="answer">
+                <pre id="answerOutput">Answer output will appear here.</pre>
+              </div>
+              <div id="sourcesList" class="list"></div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    window.__BOOTSTRAP_API_KEY__ = __BOOTSTRAP_API_KEY__;
+    const els = {
+      apiBase: document.getElementById("apiBase"),
+      apiKey: document.getElementById("apiKey"),
+      listProjectsBtn: document.getElementById("listProjectsBtn"),
+      healthBtn: document.getElementById("healthBtn"),
+      connectionStatus: document.getElementById("connectionStatus"),
+      projectSelect: document.getElementById("projectSelect"),
+      projectId: document.getElementById("projectId"),
+      projectName: document.getElementById("projectName"),
+      createProjectBtn: document.getElementById("createProjectBtn"),
+      createProjectKeyBtn: document.getElementById("createProjectKeyBtn"),
+      projectStatus: document.getElementById("projectStatus"),
+      loadDocumentsBtn: document.getElementById("loadDocumentsBtn"),
+      activeProjectPill: document.getElementById("activeProjectPill"),
+      fileInput: document.getElementById("fileInput"),
+      uploadBtn: document.getElementById("uploadBtn"),
+      uploadStatus: document.getElementById("uploadStatus"),
+      documentsList: document.getElementById("documentsList"),
+      queryInput: document.getElementById("queryInput"),
+      topK: document.getElementById("topK"),
+      rerank: document.getElementById("rerank"),
+      queryBtn: document.getElementById("queryBtn"),
+      queryStatus: document.getElementById("queryStatus"),
+      queryMeta: document.getElementById("queryMeta"),
+      answerOutput: document.getElementById("answerOutput"),
+      sourcesList: document.getElementById("sourcesList"),
+    };
+
+    els.apiBase.value = window.location.origin;
+
+    function setStatus(target, message, tone = "") {
+      target.textContent = message;
+      target.className = `status ${tone}`.trim();
+    }
+
+    function apiBase() {
+      return els.apiBase.value.replace(/\/+$/, "");
+    }
+
+    function sleep(ms) {
+      return new Promise((resolve) => window.setTimeout(resolve, ms));
+    }
+
+    function headers() {
+      const h = { "Content-Type": "application/json" };
+      if (els.apiKey.value.trim()) {
+        h["X-API-Key"] = els.apiKey.value.trim();
+      }
+      return h;
+    }
+
+    function activeProjectId() {
+      return els.projectId.value.trim();
+    }
+
+    function syncProjectUI() {
+      const projectId = activeProjectId();
+      els.activeProjectPill.textContent = projectId ? `Project ${projectId}` : "No active project";
+      els.queryMeta.textContent = projectId ? `Targeting ${projectId}` : "Waiting for a project.";
+    }
+
+    function renderProjects(projects) {
+      els.projectSelect.innerHTML = '<option value="">Select a project</option>';
+      for (const project of projects) {
+        const option = document.createElement("option");
+        option.value = project.id;
+        option.textContent = `${project.name} (${project.id})`;
+        els.projectSelect.appendChild(option);
+      }
+    }
+
+    function renderDocuments(documents) {
+      els.documentsList.innerHTML = "";
+      if (!documents.length) {
+        els.documentsList.innerHTML = '<div class="item"><strong>No documents yet.</strong><div class="meta">Upload files to populate this project.</div></div>';
+        return;
+      }
+      for (const doc of documents) {
+        const item = document.createElement("div");
+        item.className = "item";
+        item.innerHTML = `<strong>${doc.filename}</strong><div class="meta">Status: ${doc.status}<br>ID: ${doc.id}</div>`;
+        els.documentsList.appendChild(item);
+      }
+    }
+
+    function renderSources(sources) {
+      els.sourcesList.innerHTML = "";
+      if (!sources || !sources.length) {
+        els.sourcesList.innerHTML = '<div class="item"><strong>No sources returned.</strong><div class="meta">The model answered without retrieval hits.</div></div>';
+        return;
+      }
+      for (const source of sources) {
+        const item = document.createElement("div");
+        item.className = "item";
+        item.innerHTML = `<strong>${source.filename}</strong><div class="meta">Chunk ${source.chunk_index} | Score ${Number(source.score).toFixed(4)} | ${source.chunk_id}</div>`;
+        els.sourcesList.appendChild(item);
+      }
+    }
+
+    async function requestJson(path, options = {}) {
+      const response = await fetch(`${apiBase()}${path}`, options);
+      const raw = await response.text();
+      let data = null;
+      try {
+        data = raw ? JSON.parse(raw) : null;
+      } catch {
+        data = raw;
+      }
+      if (!response.ok) {
+        const message = data && data.detail ? data.detail : raw || `Request failed with ${response.status}`;
+        throw new Error(message);
+      }
+      return data;
+    }
+
+    async function listProjects() {
+      setStatus(els.connectionStatus, "Loading projects...");
+      try {
+        const data = await requestJson("/projects", { headers: headers() });
+        renderProjects(data.projects || []);
+        setStatus(els.connectionStatus, `Loaded ${data.total} project(s).`, "ok");
+      } catch (error) {
+        setStatus(els.connectionStatus, error.message, "error");
+      }
+    }
+
+    async function createProject() {
+      const name = els.projectName.value.trim();
+      if (!name) {
+        setStatus(els.projectStatus, "Enter a project name first.", "warn");
+        return;
+      }
+      setStatus(els.projectStatus, "Creating project...");
+      try {
+        const data = await requestJson("/projects", {
+          method: "POST",
+          headers: headers(),
+          body: JSON.stringify({ name }),
+        });
+        els.projectId.value = data.id;
+        syncProjectUI();
+        setStatus(els.projectStatus, `Created project ${data.name}.`, "ok");
+        await listProjects();
+      } catch (error) {
+        setStatus(els.projectStatus, error.message, "error");
+      }
+    }
+
+    async function createProjectKey() {
+      const projectId = activeProjectId();
+      if (!projectId) {
+        setStatus(els.projectStatus, "Select or enter a project first.", "warn");
+        return;
+      }
+      setStatus(els.projectStatus, "Creating project key...");
+      try {
+        const data = await requestJson(`/projects/${projectId}/api-keys`, {
+          method: "POST",
+          headers: headers(),
+          body: JSON.stringify({ label: "web-ui" }),
+        });
+        setStatus(
+          els.projectStatus,
+          `Created project key. Save it now: ${data.key}`,
+          "ok"
+        );
+      } catch (error) {
+        setStatus(els.projectStatus, error.message, "error");
+      }
+    }
+
+    async function loadDocuments() {
+      const projectId = activeProjectId();
+      if (!projectId) {
+        setStatus(els.uploadStatus, "Select or enter a project first.", "warn");
+        return;
+      }
+      setStatus(els.uploadStatus, "Loading documents...");
+      try {
+        const data = await requestJson(`/projects/${projectId}/documents`, {
+          headers: headers(),
+        });
+        renderDocuments(data.documents || []);
+        setStatus(els.uploadStatus, `Loaded ${data.total} document(s).`, "ok");
+      } catch (error) {
+        setStatus(els.uploadStatus, error.message, "error");
+      }
+    }
+
+    async function pollDocuments(projectId, queuedDocs) {
+      const pending = new Map(queuedDocs.map((doc) => [doc.document_id, doc.filename]));
+
+      for (let attempt = 0; attempt < 90 && pending.size; attempt += 1) {
+        const snapshots = await Promise.all(
+          Array.from(pending.entries()).map(async ([documentId, filename]) => {
+            try {
+              const data = await requestJson(
+                `/projects/${projectId}/documents/${documentId}/status`,
+                { headers: headers() }
+              );
+              return { filename, status: data.status, documentId };
+            } catch (error) {
+              return { filename, status: error.message, documentId };
+            }
+          })
+        );
+
+        setStatus(
+          els.uploadStatus,
+          snapshots.map((snapshot) => `${snapshot.filename}: ${snapshot.status}`).join("\n"),
+          "warn"
+        );
+
+        for (const snapshot of snapshots) {
+          if (snapshot.status === "complete" || snapshot.status === "failed") {
+            pending.delete(snapshot.documentId);
+          }
+        }
+
+        await loadDocuments();
+        if (!pending.size) {
+          setStatus(els.uploadStatus, "All queued documents reached a terminal state.", "ok");
+          return;
+        }
+        await sleep(2000);
+      }
+
+      if (pending.size) {
+        setStatus(
+          els.uploadStatus,
+          "Polling timed out before every upload completed. Use Load Documents to refresh.",
+          "warn"
+        );
+      }
+    }
+
+    async function uploadDocuments() {
+      const projectId = activeProjectId();
+      const files = Array.from(els.fileInput.files || []);
+      if (!projectId) {
+        setStatus(els.uploadStatus, "Select or enter a project first.", "warn");
+        return;
+      }
+      if (!files.length) {
+        setStatus(els.uploadStatus, "Choose at least one file.", "warn");
+        return;
+      }
+      els.uploadBtn.disabled = true;
+      setStatus(els.uploadStatus, `Uploading ${files.length} file(s)...`);
+      const queuedDocs = [];
+      try {
+        for (const file of files) {
+          const formData = new FormData();
+          formData.append("file", file);
+          const response = await fetch(`${apiBase()}/projects/${projectId}/documents`, {
+            method: "POST",
+            headers: els.apiKey.value.trim() ? { "X-API-Key": els.apiKey.value.trim() } : {},
+            body: formData,
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.detail || `Upload failed for ${file.name}`);
+          }
+          queuedDocs.push({ filename: file.name, document_id: data.document_id });
+        }
+        setStatus(
+          els.uploadStatus,
+          queuedDocs.map((doc) => `${doc.filename}: queued (${doc.document_id})`).join("\n"),
+          "ok"
+        );
+        await loadDocuments();
+        await pollDocuments(projectId, queuedDocs);
+      } catch (error) {
+        setStatus(els.uploadStatus, error.message, "error");
+      } finally {
+        els.uploadBtn.disabled = false;
+      }
+    }
+
+    async function runQuery() {
+      const projectId = activeProjectId();
+      const question = els.queryInput.value.trim();
+      if (!projectId) {
+        setStatus(els.queryStatus, "Select or enter a project first.", "warn");
+        return;
+      }
+      if (!question) {
+        setStatus(els.queryStatus, "Enter a question first.", "warn");
+        return;
+      }
+      els.queryBtn.disabled = true;
+      setStatus(els.queryStatus, "Running query...");
+      els.answerOutput.textContent = "Waiting for response...";
+      els.sourcesList.innerHTML = "";
+      try {
+        const data = await requestJson(`/projects/${projectId}/query`, {
+          method: "POST",
+          headers: headers(),
+          body: JSON.stringify({
+            query: question,
+            top_k: Number(els.topK.value || 5),
+            rerank: els.rerank.value === "true",
+          }),
+        });
+        els.answerOutput.textContent = data.answer || "(empty answer)";
+        renderSources(data.sources || []);
+        setStatus(
+          els.queryStatus,
+          `Done in ${data.latency_ms} ms. Tokens used: ${data.tokens_used}.`,
+          "ok"
+        );
+      } catch (error) {
+        els.answerOutput.textContent = "Query failed.";
+        setStatus(els.queryStatus, error.message, "error");
+      } finally {
+        els.queryBtn.disabled = false;
+      }
+    }
+
+    async function checkHealth() {
+      setStatus(els.connectionStatus, "Checking health...");
+      try {
+        const data = await requestJson("/health");
+        setStatus(els.connectionStatus, `Health is ${data.status}.`, "ok");
+      } catch (error) {
+        setStatus(els.connectionStatus, error.message, "error");
+      }
+    }
+
+    els.projectSelect.addEventListener("change", () => {
+      els.projectId.value = els.projectSelect.value;
+      syncProjectUI();
+    });
+    els.projectId.addEventListener("input", syncProjectUI);
+    els.listProjectsBtn.addEventListener("click", listProjects);
+    els.healthBtn.addEventListener("click", checkHealth);
+    els.createProjectBtn.addEventListener("click", createProject);
+    els.createProjectKeyBtn.addEventListener("click", createProjectKey);
+    els.loadDocumentsBtn.addEventListener("click", loadDocuments);
+    els.uploadBtn.addEventListener("click", uploadDocuments);
+    els.queryBtn.addEventListener("click", runQuery);
+    if (window.__BOOTSTRAP_API_KEY__) {
+      els.apiKey.value = window.__BOOTSTRAP_API_KEY__;
+      setStatus(els.connectionStatus, "Bootstrap key loaded automatically.", "ok");
+    }
+    syncProjectUI();
+  </script>
+</body>
+</html>

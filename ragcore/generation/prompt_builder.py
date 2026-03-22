@@ -20,7 +20,11 @@ def build_prompt(query: str, chunks: list[ChunkResult]) -> str:
     total_chars = 0
 
     for chunk in chunks:
-        entry = f"[{chunk.filename}, chunk {chunk.chunk_index}]\n{chunk.content}"
+        if chunk.source_kind == "chunk":
+            entry = f"[{chunk.filename}, chunk {chunk.chunk_index}]\n{chunk.content}"
+        else:
+            label = chunk.source_label or chunk.filename
+            entry = f"[{chunk.source_kind}: {label}]\n{chunk.content}"
         if total_chars + len(entry) > _MAX_CONTEXT_CHARS:
             break
         context_parts.append(entry)

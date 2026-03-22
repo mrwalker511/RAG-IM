@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ragcore.db.models import Chunk, Document
 from ragcore.embeddings.base import BaseEmbedder
+from ragcore.graph.extraction import extract_graph_from_chunks
+from ragcore.graph.service import purge_document_graph, upsert_document_graph
 from ragcore.ingestion.chunker import chunk_texts
 from ragcore.ingestion.deduplication import compute_hash
 from ragcore.ingestion.parsers.base import BaseParser
@@ -94,6 +96,7 @@ async def run_ingestion(
             doc.meta = {**doc.meta, **metadata}
         # Avoid lazy-loading doc.chunks under AsyncSession.
         await session.execute(delete(Chunk).where(Chunk.document_id == doc.id))
+        await purge_document_graph(project_id=project_id, document_id=doc.id, session=session)
 
     await session.flush()
 
@@ -103,6 +106,7 @@ async def run_ingestion(
         chunk_results = chunk_texts(sections)
         texts = [c.content for c in chunk_results]
         vectors = await embedder.embed(texts)
+        extraction = extract_graph_from_chunks(chunk_results)
 
         for chunk_res, vector in zip(chunk_results, vectors):
             chunk = Chunk(
@@ -115,6 +119,16 @@ async def run_ingestion(
             )
             session.add(chunk)
 
+        graph_counts = await upsert_document_graph(
+            project_id=project_id,
+            document_id=doc.id,
+            extraction=extraction,
+            session=session,
+        )
+        doc.meta = {
+            **doc.meta,
+            "graph": graph_counts,
+        }
         doc.status = "complete"
         logger.info("Ingested %d chunks from %s", len(chunk_results), filename)
     except Exception as exc:

@@ -17,6 +17,8 @@ class ChunkResult:
     chunk_index: int
     filename: str
     metadata: dict
+    source_kind: str = "chunk"
+    source_label: str | None = None
 
 
 async def vector_search(
@@ -55,6 +57,8 @@ async def vector_search(
             chunk_index=row.Chunk.chunk_index,
             filename=row.filename,
             metadata=row.Chunk.meta,
+            source_kind="chunk",
+            source_label=row.filename,
         )
         for row in rows
     ]
